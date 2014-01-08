@@ -67,6 +67,7 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
   private val rvFunctions              = mutable.Map.empty[String, RVFunction].withDefault(super.rv)
   private var tdFunction: TDFunction   = super.td
   private var lubFunction: LUBFunction = super.lub
+  private var glbFunction: GLBFunction = super.glb
   private var phiFunction: PHIFunction = super.phi
   private var registering              = false
 
@@ -120,6 +121,8 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
   override def td(s: EACState, t: Polynomial) = tdFunction(s, t)
 
   override def lub(a: EACState, b: EACState) = lubFunction(a, b)
+  
+  override def glb(a: EACState, b: EACState) = glbFunction(a, b)
 
   override def phi(s: CState) = phiFunction(s)
 
@@ -208,6 +211,11 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
     def lub(f: LUBFunction) = {
       checkRegistering()
       lubFunction = f
+    }
+    
+    def glb(f: GLBFunction) = {
+      checkRegistering()
+      glbFunction = f
     }
 
     val ϕ = phi _

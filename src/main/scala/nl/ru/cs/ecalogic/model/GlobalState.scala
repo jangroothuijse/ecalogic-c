@@ -61,6 +61,9 @@ case class GlobalState(gamma: GlobalState.States, t: Polynomial) {
   // Scala doesn't (and can't possibly?) know that the two EACStates are the same type.
   def max(other: GlobalState): GlobalState =
     GlobalState(gamma.transform((comp,st) => st.lub(other.gamma(comp))), t max other.t)
+    
+  def min(other: GlobalState): GlobalState =
+    GlobalState(gamma.transform((comp,st) => st.glb(other.gamma(comp))), t min other.t)
 
   /* pass-thru functions */
   def apply(name: String): ComponentModel#EACState = gamma(name)

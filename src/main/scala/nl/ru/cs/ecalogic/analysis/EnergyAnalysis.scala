@@ -124,6 +124,33 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
       /** Return the lub using original time and energy info */
       lub.transform((name,st)=>st.update(init(name).timestamp, init(name).energy))
     }
+    
+    def fixlbPoint(init: States, expr: Expression, stm: Statement)(implicit env: Environment): States = {
+      /** Throw away the temporal information (time, energy usage) and replace it with
+          that of the initial state */
+      def nontemporal(st: States) = st.transform((_,state)=>state.reset)
+
+      /** The function we are going to iterate */
+      def f(st: States) =
+        nontemporal(analyse(analyse((st,Polynomial(0)), expr), stm).gamma)
+
+      /** Starting values for the iteration */
+      var cur   = nontemporal(init)
+      var glb   = cur
+
+      /** Find the fixpoint */
+      val seen  = mutable.Set(cur)
+      var limit = Config.fixPatience
+      do {
+        if({limit-=1; limit} <= 0)
+          eh.fatalError(new ECAException("Model error: not all component delta functions have fixed points."))
+        cur  = f(cur)
+        glb  = glb.transform((name,st)=>st.glb(cur(name)))
+      } while(seen.add(cur))
+
+      /** Return the lub using original time and energy info */
+      glb.transform((name,st)=>st.update(init(name).timestamp, init(name).energy))
+    }
 
     /** Convert an Expression to ECAValue, and complain if this is not possible */
     def resolve(expr: Expression): Polynomial = expr match {

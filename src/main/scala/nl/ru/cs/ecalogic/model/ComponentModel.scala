@@ -49,6 +49,7 @@ trait ComponentModel { model =>
   // Utility types
   type TDFunction  = (EACState, Polynomial) => Polynomial
   type LUBFunction = (EACState, EACState) => EACState
+  type GLBFunction = (EACState, EACState) => EACState
   type PHIFunction = CState => ECAValue
   type DFunction   = CState => CState
   type RVFunction  = (CState, Seq[ECAValue]) => ECAValue
@@ -148,6 +149,18 @@ trait ComponentModel { model =>
       sa.update(sa.elements.keys.map(key => key -> (sa.elements(key) max sb.elements(key)))),
       ta min tb,
       ea max eb
+    )
+  }
+  
+  // greatest lower bound of two component state environments
+  def glb(a: EACState, b: EACState): EACState = {
+    val EACState(sa, ta, ea) = a
+    val EACState(sb, tb, eb) = b
+
+    EACState(
+      sa.update(sa.elements.keys.map(key => key -> (sa.elements(key) min sb.elements(key)))), //min elements
+      ta max tb, // max timestamp
+      ea min eb // min energy
     )
   }
 
