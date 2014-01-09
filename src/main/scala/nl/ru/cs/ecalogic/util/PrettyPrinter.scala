@@ -61,7 +61,7 @@ class PrettyPrinter(program: Program, eh: ErrorHandler = new DefaultErrorHandler
           printPart(elsePart, depth + 1)
           printDepthln()
           print("end if")
-        case While(pred, rf, consq) =>
+        case While(pred, rf, _, consq) =>
           print("while ")
           printPart(pred, depth)
           rf.foreach { rf =>

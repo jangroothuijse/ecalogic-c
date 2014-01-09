@@ -193,7 +193,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            else
                                              G3 max G4
 
-      case While(pred, Some(rf), consq)
+      case While(pred, Some(rf), _, consq)
         if Config.techReport            => val Gpre = if (Config.beforeSync) G.sync else G
                                            val G2 = analyse(Gpre,pred).update("CPU","w")
                                            val G3 = analyse(G2,consq)
@@ -206,7 +206,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            else
                                              computeEnergyBound_TR(G4, G3, Gpre, iters)
 
-      case While(pred, Some(rf), consq) => val Gpre = if (Config.beforeSync) G.sync else G
+      case While(pred, Some(rf), _, consq) => val Gpre = if (Config.beforeSync) G.sync else G
                                            val Gfix = (fixPoint(Gpre.gamma, pred, consq), Gpre.t)
                                            val G2 = analyse(Gfix,pred).update("CPU","w")
                                            val G3 = analyse(G2,consq)
@@ -239,7 +239,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
       case e:NAryExpression             => e.operands.foldLeft(G)(analyse).update("CPU", "e")
       case _:PrimaryExpression          => G
 
-      case w@While(pred, None, consq)   => eh.fatalError(new ECAException("Cannot analyse boundless while-loop", node.position))
+      case w@While(pred, None, _,consq)   => eh.fatalError(new ECAException("Cannot analyse boundless while-loop", node.position))
     }
 
     val initialState = GlobalState.initial(Map("CPU" -> Pentium0) ++ components)

@@ -75,7 +75,7 @@ trait BaseInterpreter {
       } else {
         evalStatement(alternative, postCondState, stackTrace)
       }
-    case While(predicate, rf, consequent)  =>
+    case While(predicate, rf, _, consequent)  =>
       var (postCondState, condition) = evalExpression(predicate, state, stackTrace)
       val (_, bound) = rf.map(evalExpression(_, state, stackTrace)).unzip
       var counter = ECAValue.Zero
