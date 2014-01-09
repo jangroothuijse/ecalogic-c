@@ -90,7 +90,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
     * @param entryPoint the function to analyse
     * @return The resulting global state after analysing the program
     */
-  def analyse(entryPoint: String = "program"): GlobalState = {
+  def analyse(entryPoint: String = "program"): (GlobalState, GlobalState) = {
     /** Compute fixed points of componentstates within a while-loop
      *
      * @param init set-of-componentstates (without global time)
@@ -105,7 +105,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
 
       /** The function we are going to iterate */
       def f(st: States) =
-        nontemporal(analyse(analyse((st,Polynomial(0)), expr), stm).gamma)
+        nontemporal(analyse(analyse((st,Polynomial(0)), expr)._2, stm)._2.gamma)
 
       /** Starting values for the iteration */
       var cur   = nontemporal(init)
@@ -132,7 +132,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
 
       /** The function we are going to iterate */
       def f(st: States) =
-        nontemporal(analyse(analyse((st,Polynomial(0)), expr), stm).gamma)
+        nontemporal(analyse(analyse((st,Polynomial(0)), expr)._1, stm)._1.gamma)
 
       /** Starting values for the iteration */
       var cur   = nontemporal(init)
@@ -181,50 +181,63 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
      * @return        updated tuple of set-of-componentstates and global timestamp
      *
      */
-    def analyse(G: GlobalState, node: ASTNode)(implicit env: Environment): GlobalState = node match {
+    def analyse(G: GlobalState, node: ASTNode)(implicit env: Environment): (GlobalState, GlobalState) = node match {
       case FunDef(name, parms, body)    => analyse(G,body)
-      case Skip()                       => G
+      case Skip()                       => (G, G)
       case If(pred, thenPart, elsePart) => val Gpre = if (Config.beforeSync) G.sync else G
-                                           val G2 = analyse(Gpre,pred).update("CPU","ite")
-                                           val G3 = analyse(G2,thenPart)
-                                           val G4 = analyse(G2,elsePart)
+                                           var G2 = analyse(Gpre,pred)
+                                           G2 = (G2._1.update("CPU","ite"),G2._2.update("CPU","ite"))
+                                           val G3 = (analyse(G2._1,thenPart), analyse(G2._2,thenPart))
+                                           val G4 = (analyse(G2._1,elsePart), analyse(G2._2,elsePart))
                                            if(Config.afterSync)
-                                             (G3.sync max G4.sync).timeshift
+                                             ((G3._1._1.sync min G4._1._1.sync).timeshift, (G3._2._2.sync max G4._2._2.sync).timeshift)
                                            else
-                                             G3 max G4
+                                             (G3._1._1 min G4._1._1, G3._2._2 max G4._2._2)
 
-      case While(pred, Some(rf), _, consq)
+      /*case While(pred, Some(rf), _, consq)
         if Config.techReport            => val Gpre = if (Config.beforeSync) G.sync else G
-                                           val G2 = analyse(Gpre,pred).update("CPU","w")
-                                           val G3 = analyse(G2,consq)
-                                           val G3fix = (fixPoint(G3.gamma, pred, consq), G3.t)
+                                           var G2 = analyse(Gpre,pred)
+                                           G2 = (G2._1.update("CPU","w"), G2._2.update("CPU","w"))
+                                           val G3 = (analyse(G2._1,consq),analyse(G2._2,consq)) 
+                                           val G3fix = (fixPoint(G3._2._2.gamma, pred, consq), G3._2._2.t)
+                                           val G3fixlb = (fixlbPoint(G3._1._1.gamma, pred, consq), G3._1._1.t)
                                            val G4 = analyse(analyse(G3fix, pred).update("CPU","w"), consq)
                                          //val G4 = analyse(analyse(G3fix, pred), consq) // this is bug-compatible with the TR
                                            val iters = resolve(foldConstants(rf, env))
                                            if(Config.afterSync)
                                              computeEnergyBound_TR(G4.sync, G3.sync, Gpre, iters).timeshift
                                            else
-                                             computeEnergyBound_TR(G4, G3, Gpre, iters)
+                                             computeEnergyBound_TR(G4, G3, Gpre, iters)*/
 
-      case While(pred, Some(rf), _, consq) => val Gpre = if (Config.beforeSync) G.sync else G
+      case While(pred, Some(rfl), Some(rf), consq) => val Gpre = if (Config.beforeSync) G.sync else G
                                            val Gfix = (fixPoint(Gpre.gamma, pred, consq), Gpre.t)
-                                           val G2 = analyse(Gfix,pred).update("CPU","w")
-                                           val G3 = analyse(G2,consq)
+                                           val Gfixlb = (fixlbPoint(Gpre.gamma, pred, consq), Gpre.t)
+                                           var G2 = analyse(Gfix,pred)
+                                           var G2l = analyse(Gfixlb,pred)                                           
+                                           G2 = (G2._1.update("CPU","w"), G2._2.update("CPU","w"))
+                                           G2l = (G2l._1.update("CPU","w"), G2l._2.update("CPU","w"))
+                                           val G3 = (analyse(G2._1,consq),analyse(G2._2,consq))
+                                           val G3l = (analyse(G2l._1,consq),analyse(G2l._2,consq))
                                            val iters = resolve(foldConstants(rf, env))
+                                           val iterslb = resolve(foldConstants(rfl, env))
                                            if(Config.afterSync)
-                                             computeEnergyBound(G3.sync, Gpre, iters).timeshift
+                                             (computeEnergyBound(G3l._1._1.sync, Gpre, iterslb).timeshift,
+                                                 computeEnergyBound(G3._2._2.sync, Gpre, iters).timeshift)
                                            else
-                                             computeEnergyBound(G3, Gpre, iters)
+                                             (computeEnergyBound(G3l._1._1, Gpre, iters),
+                                                 computeEnergyBound(G3._2._2, Gpre, iters))
 
-      case Composition(stms)            => stms.foldLeft(G)(analyse)
-      case Assignment(_, expr)          => analyse(G,expr).update("CPU","a")
-
+      case Composition(stms)            => (stms.foldLeft(G)(analyseFirst), stms.foldLeft(G)(analyseSecond))
+      case Assignment(_, expr)          => var G2 = analyse(G,expr)
+      									   (G2._1.update("CPU","a"), G2._2.update("CPU","a"))
+      								   
       case FunCall(fun, args)
         if fun.isPrefixed               => val component = fun.prefix.get
                                            if(!G.gamma.contains(component)) {
-                                             eh.error(new ECAException(s"Component not found: $component", node.position)); G
+                                             eh.error(new ECAException(s"Component not found: $component", node.position)); (G, G)
                                            } else
-                                             args.foldLeft(G)(analyse).update(component, fun.name)
+                                             (args.foldLeft(G)(analyseFirst).update(component, fun.name),
+                                                 args.foldLeft(G)(analyseSecond).update(component, fun.name))
 
       case FunCall(fun, args)           => val funDef = program.functions(fun.name)
                                            val resolvedArgs = args.map(foldConstants(_, env))
@@ -236,16 +249,26 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            }
                                            analyse(G, stm.underlying)(annotatedEnv)
 
-      case e:NAryExpression             => e.operands.foldLeft(G)(analyse).update("CPU", "e")
-      case _:PrimaryExpression          => G
+      case e:NAryExpression             => (e.operands.foldLeft(G)(analyseFirst).update("CPU", "e"),
+    		  									e.operands.foldLeft(G)(analyseSecond).update("CPU", "e"))
+      case _:PrimaryExpression          => (G, G)
 
       case w@While(pred, None, _,consq)   => eh.fatalError(new ECAException("Cannot analyse boundless while-loop", node.position))
     }
+    
+    def analyseFirst (G: GlobalState, node: ASTNode)(implicit env: Environment): GlobalState = (
+          analyse(G, node)._1
+    )
+    def analyseSecond (G: GlobalState, node: ASTNode)(implicit env: Environment): GlobalState = (
+          analyse(G, node)._2
+    ) 
 
     val initialState = GlobalState.initial(Map("CPU" -> Pentium0) ++ components)
     val root         = program.functions.getOrElse(entryPoint, throw new ECAException(s"No $entryPoint function to analyse."))
     val finalState   = analyse(initialState, root)(Map.empty)
-    finalState.sync
+    finalState._1.sync
+    finalState._2.sync
+    finalState
   }
 }
 
