@@ -53,6 +53,7 @@ object ECALogic {
   val defaultErrorHandler = new DefaultErrorHandler
 
   def report(fileName: String, state: (GlobalState, GlobalState)) {
+    println("Lower bound:")
     state._1.transform((_,st)=>st.energy) match {
       case result if Options.terse =>
         println(result)
@@ -63,6 +64,7 @@ object ECALogic {
         for((name, e) <- states)
           println(f"└ $name%13s\t$e%s")
     }
+    println("Upper bound:")
     state._2.transform((_,st)=>st.energy) match {
       case result if Options.terse =>
         println(result)
