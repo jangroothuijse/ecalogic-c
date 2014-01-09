@@ -62,7 +62,7 @@ import component ecalogic.CPU
 (* expect: (Map(BUG -> 0, CPU -> 550, Radio -> 403380, Sensor -> 6430, Stub -> 0),2010) *)
 function algorithm1(Xn,Xdiv10)
   Radio::on()
-  while Xn > 0 bound Xn do
+  while Xn > 0 bound (Xn, Xn) do
     X1 := Sensor::m()
     Radio::queue(X1)
     Radio::send()
@@ -72,10 +72,10 @@ function algorithm1(Xn,Xdiv10)
 end function
 
 function algorithm2(Xn,Xdiv10)
-  while Xn > 0 bound Xdiv10 do
+  while Xn > 0 bound (Xdiv10, Xdiv10) do
     Xi := 10
 //  while Xi > 0 bound Xi do // <--- not allowed: program variable
-    while Xi > 0 bound 10 do
+    while Xi > 0 bound (10, 10) do
       X1 := Sensor::m()
       Radio::queue(X1)
       Xi := Xi - 1
