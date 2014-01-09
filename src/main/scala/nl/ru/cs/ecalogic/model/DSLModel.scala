@@ -155,7 +155,8 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
 
     private[DSLModel] class VariableDeclaration(val value: ECAValue)
 
-    val σ = s0
+    //val σ = s0
+    val sigmasymbol = s0
     object s0 extends Declaration[ECAValue] {
 
       protected def apply(declarations: Seq[(String, ECAValue)]) {
@@ -183,7 +184,8 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
 
     }
 
-    val δ     = d
+    //val δ     = d
+    val deltasymbol = d
     val delta = d
     object d extends Declaration[DFunction] {
 
@@ -218,7 +220,8 @@ abstract class DSLModel(val name: String) extends ComponentModel with DelayedIni
       glbFunction = f
     }
 
-    val ϕ = phi _
+    //val ϕ = phi _
+    val phisymbol = phi _
     def phi(f: PHIFunction) = {
       checkRegistering()
       phiFunction = f

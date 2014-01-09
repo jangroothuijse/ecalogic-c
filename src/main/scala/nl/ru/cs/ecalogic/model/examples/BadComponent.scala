@@ -36,10 +36,12 @@ package examples
 
 object BadComponent extends DSLModel("BUG") {
 
-    define σ (on = 0)
+    //define σ (on = 0)
+    define sigmasymbol (on = 0)
      
     /* the function toggle is not order preserving */
-    define δ (
+    //define δ (
+    define deltasymbol (
       inc = s => s(on = s.on+1),
       neg = s => s(on = -s.on)
     )
