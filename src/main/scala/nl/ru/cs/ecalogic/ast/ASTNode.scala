@@ -96,7 +96,7 @@ case class Annotated(elements: Map[String, Expression], statement: Statement) ex
 case class If(predicate: Expression, consequent: Statement, alternative: Statement) extends Statement
 
 // TODO: documentatie afmaken
-case class While(predicate: Expression, rankingUpperbound: Option[Expression], rankingLowerbound: Option[Expression], consequent: Statement) extends Statement
+case class While(predicate: Expression, rankingLowerbound: Option[Expression], rankingUpperbound: Option[Expression], consequent: Statement) extends Statement
 
 case class Assignment(variable: String, value: Expression) extends Statement
 

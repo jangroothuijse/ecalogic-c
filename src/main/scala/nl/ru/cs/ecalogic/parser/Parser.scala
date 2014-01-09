@@ -271,10 +271,10 @@ class Parser(input: String, protected val errorHandler: ErrorHandler = new Defau
       val predicate = expression(follows | Tokens.Bound)
       expect(Tokens.Bound)(follows | Tokens.LParen)
       expect(Tokens.LParen)(follows | First.expression)
-      val rankingUpperbound = new Some(expression(follows | Tokens.Comma))
+      val rankingLowerbound = new Some(expression(follows | Tokens.Comma))
       expect(Tokens.Comma)(follows | First.expression)
       //expect(Tokens.Comma)(follows)
-      val rankingLowerbound = new Some(expression(follows | Tokens.RParen))
+      val rankingUpperbound = new Some(expression(follows | Tokens.RParen))
       expect(Tokens.RParen)(follows | Tokens.Do)
      // expect(Tokens.RParen)(follows)
       expect(Tokens.Do)(follows | Tokens.Identifier | Tokens.Skip | Tokens.If | Tokens.While)
@@ -283,7 +283,7 @@ class Parser(input: String, protected val errorHandler: ErrorHandler = new Defau
       expect(Tokens.End)(follows | Tokens.While)
       expect(Tokens.While)(follows)
 
-      While(predicate, rankingUpperbound, rankingLowerbound, consequent)
+      While(predicate, rankingLowerbound, rankingUpperbound, consequent)
     case Tokens.Identifier(n) if lookahead(Tokens.LParen | Tokens.ColonColon) =>
       funCall(follows)
     case Tokens.Identifier(n) if lookahead(Tokens.Assign) =>

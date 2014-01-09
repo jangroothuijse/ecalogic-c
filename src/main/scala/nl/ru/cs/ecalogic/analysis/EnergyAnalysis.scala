@@ -224,7 +224,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                              (computeEnergyBound(G3l._1._1.sync, Gpre, iterslb).timeshift,
                                                  computeEnergyBound(G3._2._2.sync, Gpre, iters).timeshift)
                                            else
-                                             (computeEnergyBound(G3l._1._1, Gpre, iters),
+                                             (computeEnergyBound(G3l._1._1, Gpre, iterslb),
                                                  computeEnergyBound(G3._2._2, Gpre, iters))
 
       case Composition(stms)            => (stms.foldLeft(G)(analyseFirst), stms.foldLeft(G)(analyseSecond))
