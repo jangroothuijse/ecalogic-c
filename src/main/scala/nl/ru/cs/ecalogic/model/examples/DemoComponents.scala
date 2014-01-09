@@ -48,23 +48,27 @@ object DemoComponents {
     define T (m = 10)
     define E (m = 40)
 
-    define ϕ (_ => 3)
+    //define ϕ (_ => 3)
+    define phisymbol (_ => 3)
 
   }
 
   object Radio extends DSLModel("radio") {
 
-    define σ (on = 0)
+    //define σ (on = 0)
+    define sigmasymbol (on = 0)
 
     define T (on = 40, off = 20, queue = 30, send = 100)
     define E (on = 40, off = 20, queue = 30, send = 100)
 
-    define δ (
+    //define δ (
+    define deltasymbol (
       on  = s => s(on = true),
       off = s => s(on = false)
     )
 
-    define ϕ (s => 2 + 200 * s.on)
+    //define ϕ (s => 2 + 200 * s.on)
+    define phisymbol (s => 2 + 200 * s.on)
 
   }
 
