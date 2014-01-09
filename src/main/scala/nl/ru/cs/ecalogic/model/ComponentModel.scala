@@ -119,6 +119,9 @@ trait ComponentModel { model =>
     def lub(that: ComponentModel#EACState) =
       // there has to be a better way?
       model.lub(this, that.asInstanceOf[EACState])
+      
+    def glb(that: ComponentModel#EACState) =
+      model.glb(this, that.asInstanceOf[EACState])
 
     /* checks if monotonicity of phi holds for s1 => s2 */
     def phiCheck(s1: CState, s2: CState) {
@@ -159,7 +162,7 @@ trait ComponentModel { model =>
 
     EACState(
       sa.update(sa.elements.keys.map(key => key -> (sa.elements(key) min sb.elements(key)))), //min elements
-      ta max tb, // max timestamp
+      ta max tb, // max timestamp, so minimum duration
       ea min eb // min energy
     )
   }
