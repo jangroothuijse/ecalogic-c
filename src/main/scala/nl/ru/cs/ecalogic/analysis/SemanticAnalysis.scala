@@ -67,7 +67,7 @@ class SemanticAnalysis(program: Program, components: Map[String, ComponentModel]
 
     def funCalls(node: ASTNode): Set[String] = node match {
       case If(pred, thenPart, elsePart) => funCalls(pred) ++ funCalls(thenPart) ++ funCalls(elsePart)
-      case While(pred, _, consq)        => funCalls(pred) ++ funCalls(consq)
+      case While(pred, _, _, consq)        => funCalls(pred) ++ funCalls(consq)
       case Composition(stms)            => stms.flatMap(funCalls).toSet
       case Assignment(_, expr)          => funCalls(expr)
       case Annotated(_, stm)            => funCalls(stm)
@@ -148,7 +148,7 @@ class SemanticAnalysis(program: Program, components: Map[String, ComponentModel]
 
         case If(pred, thenPart, elsePart) => varFlow(live, pred)
                                              varFlow(live, thenPart) & varFlow(live, elsePart)
-        case While(pred, rf, consq)       => varFlow(live, pred); varFlow(live, consq)
+        case While(pred, rf, _, consq)       => varFlow(live, pred); varFlow(live, consq)
                                              rf.foreach(checkStaticExpression(live, params, _))
                                              live
         case Composition(stms)            => stms.foldLeft(live)(varFlow)
