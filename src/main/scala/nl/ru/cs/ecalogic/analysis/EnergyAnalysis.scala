@@ -190,9 +190,11 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            val G3 = (analyse(G2._1,thenPart), analyse(G2._2,thenPart))
                                            val G4 = (analyse(G2._1,elsePart), analyse(G2._2,elsePart))
                                            if(Config.afterSync)
-                                             ((G3._1._1.sync min G4._1._1.sync).timeshift, (G3._2._2.sync max G4._2._2.sync).timeshift)
+                                            ((G3._1._1.sync min G4._1._1.sync min G3._2._1.sync min G4._2._1.sync).timeshift, 
+                                            (G3._2._2.sync max G4._2._2.sync max G3._1._2.sync max G4._1._2.sync).timeshift)
                                            else
-                                             (G3._1._1 min G4._1._1, G3._2._2 max G4._2._2)
+                                             (G3._1._1 min G4._1._1 min G3._2._1 min G4._2._1, 
+                                                 G3._2._2 max G4._2._2 max G3._1._2 max G4._1._2)
 
       /*case While(pred, Some(rf), _, consq)
         if Config.techReport            => val Gpre = if (Config.beforeSync) G.sync else G
@@ -221,11 +223,11 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            val iters = resolve(foldConstants(rf, env))
                                            val iterslb = resolve(foldConstants(rfl, env))
                                            if(Config.afterSync)
-                                             (computeEnergyBound(G3l._1._1.sync, Gpre, iterslb).timeshift,
-                                                 computeEnergyBound(G3._2._2.sync, Gpre, iters).timeshift)
+                                             (computeEnergyBound((G3l._1._1.sync min G3l._2._1.sync), Gpre, iterslb).timeshift,
+                                                 computeEnergyBound(G3._2._2.sync max G3._1._2.sync, Gpre, iters).timeshift)
                                            else
-                                             (computeEnergyBound(G3l._1._1, Gpre, iterslb),
-                                                 computeEnergyBound(G3._2._2, Gpre, iters))
+                                             (computeEnergyBound(G3l._1._1 min G3l._2._1, Gpre, iterslb),
+                                                 computeEnergyBound(G3._2._2 max G3._1._2, Gpre, iters))
 
       case Composition(stms)            => (stms.foldLeft(G)(analyseFirst), stms.foldLeft(G)(analyseSecond))
       case Assignment(_, expr)          => var G2 = analyse(G,expr)
