@@ -33,7 +33,7 @@
 package nl.ru.cs.ecalogic
 package util
 
-import scala.collection.mutable
+import scala.collection.mutable._
 
 import java.io.{File, PrintWriter}
 import java.net.URI
@@ -206,7 +206,7 @@ class DefaultErrorHandler(maxErrorCount: Int = 10,
   * @author Jascha Neutelings
   */
 class CachingErrorHandler(val output: ErrorHandler = new DefaultErrorHandler) extends ErrorHandler {
-  private val errors = mutable.PriorityQueue.empty[(ECAException, Boolean)]
+  private val errors = Queue.empty[(ECAException, Boolean)]
 
   def reset() {
     errors.clear()
@@ -230,7 +230,7 @@ class CachingErrorHandler(val output: ErrorHandler = new DefaultErrorHandler) ex
 
   /** Flushes all error messages to the underlying error handler and clears the buffer. */
   def flush() {
-    errors.dequeueAll.reverse.foreach { case (e, w) =>
+    errors.dequeueAll(x => { true }).foreach { case (e, w) =>
       if (w)
         output.warning(e)
       else

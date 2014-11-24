@@ -1,4 +1,4 @@
-package nl.ru.cs.ecalogic.model.examples;
+package main.scala.nl.ru.cs.ecalogic.model.examples;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

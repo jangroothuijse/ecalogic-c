@@ -1,4 +1,4 @@
-package nl.ru.cs.ecalogic.model.examples;
+package main.scala.nl.ru.cs.ecalogic.model.examples;
 
 /**
  * Example Radio hardware component, in Java

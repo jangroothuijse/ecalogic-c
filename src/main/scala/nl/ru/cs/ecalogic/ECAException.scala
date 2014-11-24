@@ -69,7 +69,10 @@ with Ordered[ECAException] {
   def compare(that: ECAException): Int = position.get.compare(that.position.get)
 
   def markReported = new ECAException(message, position, cause, stackTrace, true)
-
+  /**
+   * due to https://issues.scala-lang.org/browse/SI-8541
+   */
+  implicit def ECAExceptionOrdering: Ordering[ECAException] = Ordering.by(_.message)
 }
 
 object ECAException {
