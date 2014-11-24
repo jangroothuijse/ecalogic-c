@@ -44,11 +44,11 @@ package util
  *
  * @author Marc Schoolderman
  */
-class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor: (Seq[String],BigInt) = (Seq.empty, 1)) extends PartiallyOrdered[Polynomial] {
+class Polynomial private (private val repr: Map[Seq[String],Double], val divisor: (Seq[String],Double) = (Seq.empty, 1)) extends PartiallyOrdered[Polynomial] {
 
   import Polynomial._
 
-  private def eqv(that: Polynomial): Map[Seq[String],BigInt] = repr.map(product(_, that.divisor))
+  private def eqv(that: Polynomial): Map[Seq[String],Double] = repr.map(product(_, that.divisor))
 
   def +(that: Polynomial) = simplify(
     combine(this.eqv(that), that.eqv(this)),
@@ -81,15 +81,15 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
       acc
   }
 
-  def max(that: Polynomial) = simplify(
+  def max(that: Polynomial) : Polynomial = simplify(
     { val lifted = that.eqv(this)
-      lifted ++ eqv(that).transform { case (term,fac) => fac max lifted.getOrElse(term, 0) } },
+      lifted ++ eqv(that).transform { case (term,fac) => fac max lifted.getOrElse(term, 0.0) } },
     product(divisor, that.divisor)
   )
 
-  def min(that: Polynomial) = simplify(
+  def min(that: Polynomial) : Polynomial = simplify(
     { val lifted = that.eqv(this)
-      eqv(that).transform { case (term,fac) => fac min lifted.getOrElse(term, 0) } },
+      eqv(that).transform { case (term,fac) => fac min lifted.getOrElse(term, 0.0) } },
     product(divisor, that.divisor)
   )
 
@@ -97,7 +97,7 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
 
   def split: Seq[Polynomial] = repr.map(term=>simplify(Map(term),divisor)).toSeq.filter(_ != 0)
 
-  def coef(term: Seq[String] = Seq.empty): BigInt = repr.getOrElse(term.sorted, BigInt(0))
+  def coef(term: Seq[String] = Seq.empty): Double = repr.getOrElse(term.sorted, 0)
 
   def apply[T <% Polynomial](bindings: (String,T)*): Polynomial = {
     val env: PartialFunction[String,Polynomial] = 
@@ -112,8 +112,8 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
 
   override def tryCompareTo[B >: Polynomial <% PartiallyOrdered[B]](that: B): Option[Int] = that match {
     case that: Polynomial =>
-      val lhs = this.eqv(that).withDefaultValue(BigInt(0))
-      val rhs = that.eqv(this).withDefaultValue(BigInt(0))
+      val lhs = this.eqv(that).withDefaultValue(0.0)
+      val rhs = that.eqv(this).withDefaultValue(0.0)
       val shared = (lhs ++ rhs).keys
       var sign = 0
       shared.foreach { term =>
@@ -128,7 +128,7 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
 
   override def equals(that: Any) = that match {
     case that: Polynomial => tryCompareTo(that).exists(_==0)
-    case x: BigInt        => this == Polynomial(x)
+    case x: Double        => this == Polynomial(x)
     case x: Int           => this == Polynomial(x)
     case _                => false
   }
@@ -140,7 +140,7 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
 
   def toFractionalString = {
     def nondigit(c: Char) = !('0' to '9' contains c)
-    def prepend(coef: BigInt, term: Seq[String]) = if(coef != 1 || term.isEmpty) coef+:term else term
+    def prepend(coef: Double, term: Seq[String]) = if(coef != 1 || term.isEmpty) coef+:term else term
 
     val str = (for((term, coef)<-repr.toSeq if coef != 0) yield prepend(coef,term) mkString "*") sortBy(-_.count(nondigit)) mkString " + "
 
@@ -159,38 +159,38 @@ class Polynomial private (private val repr: Map[Seq[String],BigInt], val divisor
 object Polynomial {
   import scala.language.implicitConversions
 
-  private def optimize(a: Map[Seq[String],BigInt]) = a.filter(_._2 != 0)
+  private def optimize(a: Map[Seq[String],Double]) = a.filter(_._2 != 0)
 
-  private def combine(a: Map[Seq[String],BigInt], b: Map[Seq[String],BigInt]) =
-    a.repr ++ b.transform(a.getOrElse(_, BigInt(0))+_)
+  private def combine(a: Map[Seq[String],Double], b: Map[Seq[String],Double]) =
+    a.repr ++ b.transform(a.getOrElse(_, 0.0)+_)
 
-  private def product(a: (Seq[String],BigInt), b: (Seq[String],BigInt)) =
+  private def product(a: (Seq[String],Double), b: (Seq[String],Double)) =
     ((a._1++b._1).sorted, a._2*b._2)
 
-  private def simplify(repr: Map[Seq[String],BigInt], divisor: (Seq[String],BigInt)) = 
+  private def simplify(repr: Map[Seq[String],Double], divisor: (Seq[String],Double)) = 
     if(divisor == (Seq.empty, 1) || repr.forall(_._2 == 0))
       new Polynomial(repr) 
     else {
-      def gcd(x:BigInt, y: BigInt): BigInt = if(x%y==0) y else gcd(y, x%y)
+      def gcd(x:Double, y: Double): Double = if(x%y==0) y else gcd(y, x%y)
       val common = repr.foldRight(divisor) { 
         // ignore terms with a zero coefficient
         case ((v1, n), (v2, m)) => if(n==0) (v2,m) else (v1.intersect(v2), gcd(n,m)) 
       }
-      def divideOut(term: (Seq[String],BigInt)) = (term._1.diff(common._1).sorted, term._2/common._2)
+      def divideOut(term: (Seq[String],Double)) = (term._1.diff(common._1).sorted, term._2/common._2)
       new Polynomial(repr.map(divideOut), divideOut(divisor))
     }
 
   implicit def intToPoly(value: Int): Polynomial =
-    new Polynomial(Map(Seq.empty[String]->BigInt(value)))
+    new Polynomial(Map(Seq.empty[String]->value))
     
-  implicit def bigIntToPoly(value: BigInt): Polynomial =
+  implicit def bigIntToPoly(value: Double): Polynomial =
     new Polynomial(Map(Seq.empty[String]->value))
     
   implicit def stringToPoly(name: String): Polynomial =
-    new Polynomial(Map(Seq(name)->BigInt(1)))
+    new Polynomial(Map(Seq(name)->1))
 
   def apply(value: Int): Polynomial = value
-  def apply(value: BigInt): Polynomial = value
+  def apply(value: Double): Polynomial = value
   def apply(variable: String): Polynomial = variable
 
   def main(args: Array[String]) {

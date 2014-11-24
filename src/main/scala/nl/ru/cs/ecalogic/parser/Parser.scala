@@ -136,7 +136,7 @@ class Parser(input: String, protected val errorHandler: ErrorHandler = new Defau
   def program(follows: Pattern = Pattern.empty): Program = nodeWithPosition {
     val imps = parseSequenceOf(import_(Tokens.Component), Tokens.Import % "<import declaration>")(follows)
     val funs = parseSequenceOf(funDef, Tokens.Function % "<function definition>")(Pattern.empty)
-    Program(checkSeqToMap(imps)(_.alias, "Import for"), checkSeqToMap(funs)(_.name, "Function"))
+    Program(checkSeqToMap(imps)(_.alias, "Import for"), checkSeqToMap(funs)(_.name, "Function"), Map.empty[String, Definition])
   }
 
   def import_(keyword: Keyword)(follows: Pattern): Import = nodeWithPosition {
@@ -240,13 +240,13 @@ class Parser(input: String, protected val errorHandler: ErrorHandler = new Defau
     */
   def statement(follows: Pattern): Statement = tryParse[Statement](First.statement)(follows) {
     case Tokens.LCurly =>
-      val builder = Map.newBuilder[String, Expression]
+      val builder = Map.newBuilder[Expression, Expression]
       do {
         advance()
         val variable = identifier(follows | Tokens.LArrow)
         expect(Tokens.LArrow)(follows | First.expression)
         val value = expression(follows | Tokens.Comma | Tokens.RCurly)
-        builder += variable -> value
+        builder += VarRef(variable) -> value
       } while (current(Tokens.Comma))
       expect(Tokens.RCurly)(follows | First.statement)
       val stmt = if (current(First.statement)) statement(follows) else nodeWithPosition(Skip())

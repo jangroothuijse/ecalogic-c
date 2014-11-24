@@ -58,7 +58,7 @@ case class ErrorNode() extends PrimaryExpression with Statement
 
 
 /** Class representing an entire ECA program. */
-case class Program(imports: Map[String, Import], functions: Map[String, FunDef]) extends ASTNode
+case class Program(imports: Map[String, Import], functions: Map[String, FunDef], defs: Map[String, Definition]) extends ASTNode
 
 case class Import(namePath: Seq[String], alias: String) extends ASTNode {
   val qualifiedName = namePath.mkString(".")
@@ -77,19 +77,32 @@ case class FunDef(name: String, parameters: Seq[String], body: Statement) extend
   val isComponent = false
 }
 
+//Sealed trait for Definitions (structs, unions, enumerations, typedefs)
+sealed trait Definition extends ASTNode {
+	//Superclass
+}
 
+//Structure definition node
+case class StructDef(name: String, fields: Map[String, ASTType]) extends Definition {
+	
+}
+
+//Union definition node
+case class UnionDef(name: String, fields: Map[String, ASTType]) extends Definition {
+	
+}
 
 /** Base sealed trait for statement nodes. */
 sealed trait Statement extends ASTNode {
   /** Returns the underlying unannotated statement.**/
   val underlying: Statement = this
   /** Collects all annotations for the underlying statement.**/
-  val annotations: Map[String, Expression] = Map.empty
+  val annotations: Map[Expression, Expression] = Map.empty
 }
 
-case class Annotated(elements: Map[String, Expression], statement: Statement) extends Statement {
+case class Annotated(elements: Map[Expression, Expression], statement: Statement) extends Statement {
   override val underlying: Statement = statement
-  override val annotations: Map[String, Expression] = elements ++ underlying.annotations
+  override val annotations: Map[Expression, Expression] = elements ++ underlying.annotations
 }
 
 /** Class representing a function definition. */
@@ -104,13 +117,68 @@ case class Composition(statements: Seq[Statement]) extends Statement
 
 case class Skip() extends Statement
 
+//Array declaration
+case class ArrayDeclaration(name: Expression, subtype: ASTType, length: Expression) extends Statement
 
+//Array element assign
+case class ArrayAssign(name: Expression, index: Expression, value: Expression) extends Statement
+
+//Struct field assign
+case class StructAssign(struct: Expression, field: String, value: Expression) extends Statement
+
+//Union field assign
+case class UnionAssign(union: Expression, field: String, value: Expression) extends Statement
+
+//Break statement
+case class Break() extends Statement
+
+//Continue statement
+case class Continue() extends Statement
+
+//Base sealed trait for types
+sealed trait ASTType extends ASTNode {
+	val name: String = "undef"
+}
+
+//Primitive supertypes
+case class ASTIntegerT () extends ASTType { override val name = "integer" }
+case class ASTRealT () extends ASTType { override val name = "real" }
+case class ASTVoidT () extends ASTType { override val name = "void" }
+
+//Array types
+case class ASTArrayT(sub: ASTType) extends ASTType { override val name = "array[" + sub.name + "]" }
+
+//Pointer types
+case class ASTPointerT(sub: ASTType) extends ASTType { override val name = sub.name + "*" }
+
+//Struct type
+case class ASTStructT(struct: String) extends ASTType { override val name = "struct " + struct }
+
+//Union type
+case class ASTUnionT(union: String) extends ASTType { override val name = "union " + union }
 
 sealed trait Expression extends ASTNode {
   val arity: Int
   val operands: Seq[Expression]
+  
+  override def equals(other: Any) = {
+	if (getClass() == other.getClass()) {
+		var i = 0;
+		var res = true;
+		for (exp <- operands) {
+			if (!(exp == other.asInstanceOf[Expression].operands.apply(i))) {
+				res = false;
+			}
+			i = i + 1;
+		}
+		res
+	} else {
+		false
+	}
+  }
 
   def rewrite(ops: Seq[Expression]): Expression
+  
   def transform(f: PartialFunction[Expression, Expression]): Expression =
     f.applyOrElse(rewrite(operands.map(_.transform(f))), identity[Expression])
 
@@ -118,20 +186,102 @@ sealed trait Expression extends ASTNode {
     f.applyOrElse(this, (_:Expression)=>())
     operands.foreach(_.foreach(f))
   }
+  
+  val repr: String = "undef"
 }
 
 
 sealed trait PrimaryExpression extends Expression {
   val arity = 0
-  val operands = Seq()
+  val operands: Seq[Expression] = Seq()
 
   def rewrite(ops: Seq[Expression]) = this
 }
 
-case class Literal(value: ECAValue) extends PrimaryExpression
+case class Literal(value: ECAValue) extends PrimaryExpression { 
+	override val repr = {
+		if (value.underlying.toInt.toDouble == value.underlying)
+			value.underlying.toInt.toString()
+		else
+			value.underlying.toString()
+	}
+	
+	override def equals(other: Any) = {
+		if (other.isInstanceOf[Literal]) {
+			value == other.asInstanceOf[Literal].value
+		} else {
+			false
+		}
+	}
+}
 
-case class VarRef(name: String) extends PrimaryExpression
+case class StringConstant(value: String) extends PrimaryExpression {
+	override val repr = "\"" + value + "\""
+	
+	override def equals(other: Any) = other.isInstanceOf[StringConstant] && other.asInstanceOf[StringConstant].value == value
+}
 
+case class VarRef(name: String) extends PrimaryExpression { 
+	override val repr = name
+	
+	override def equals(other: Any) = other.isInstanceOf[VarRef] && other.asInstanceOf[VarRef].name == name
+}
+
+case class SizeOfType(typ: ASTType) extends PrimaryExpression { 
+	override val repr = "sizeof(" + typ.name + ")" 
+	
+	//Cursory
+	override def equals(other: Any) = other.isInstanceOf[SizeOfType] && other.asInstanceOf[SizeOfType].repr == repr
+}
+
+case class SizeOfExpr(expr: Expression) extends PrimaryExpression { 
+	override val repr = "sizeof(" + expr.repr + ")" 
+	override def rewrite(ops: Seq[Expression]) = copy(expr = ops.apply(0))
+	override val operands = Seq(expr)
+}
+
+case class SizeOfString(str: String) extends PrimaryExpression { 
+	override val repr = "sizeof(\"" + str + "\")" 
+	override def equals(other: Any) = other.isInstanceOf[SizeOfString] && other.asInstanceOf[SizeOfString].str == str
+}
+
+case class ToNum(expr: Expression) extends PrimaryExpression { 
+	override val repr = "numeric(" + expr.repr + ")" 
+	override def rewrite(ops: Seq[Expression]) = copy(expr = ops.apply(0))
+	override val operands = Seq(expr)
+}
+
+//Array element access
+case class ArrayAccess(name: Expression, index: Expression) extends PrimaryExpression {
+	val accoperands = Seq(name, index)
+	override val repr = name.repr + "[" + index.repr + "]"
+	override def rewrite(ops: Seq[Expression]) = copy(name = ops.apply(0), index = ops.apply(1))
+	override val operands = Seq(name, index)
+}
+
+//Struct field access
+case class StructAccess(struct: Expression, field: String) extends PrimaryExpression {
+	val accoperands = Seq(struct)
+	override val repr = struct.repr + "." + field
+	override def rewrite(ops: Seq[Expression]) = copy(struct = ops.apply(0))
+	override val operands = Seq(struct)
+	override def equals(other: Any) = other.isInstanceOf[StructAccess] && other.asInstanceOf[StructAccess].struct == struct && other.asInstanceOf[StructAccess].field == field
+}
+
+//Union field access
+case class UnionAccess(union: Expression, field: String) extends PrimaryExpression {
+	val accoperands = Seq(union)
+	override val repr = union.repr + "." + field
+	override def rewrite(ops: Seq[Expression]) = copy(union = ops.apply(0))
+	override val operands = Seq(union)
+	override def equals(other: Any) = other.isInstanceOf[UnionAccess] && other.asInstanceOf[UnionAccess].union == union && other.asInstanceOf[UnionAccess].field == field
+}
+
+//Start of an array expression
+case class StartOfArray(name: String) extends PrimaryExpression {
+	override val repr = "startof(\"" + name + "\")"
+	override def equals(other: Any) = other.isInstanceOf[StartOfArray] && other.asInstanceOf[StartOfArray].name == name
+}
 
 sealed trait NAryExpression extends Expression {
   val operatorName: String
@@ -145,12 +295,46 @@ sealed trait BinaryExpression extends NAryExpression {
   def operator: (ECAValue, ECAValue) => ECAValue
 }
 
-//sealed trait UnaryExpression extends NAryExpression {
-//  def arity = 1
-//  def operand: Expression
-//  def operands = Seq(operand)
-//}
+sealed trait UnaryExpression extends NAryExpression {
+  val arity = 1
+  def operand: Expression
+  val operands = Seq(operand)
+  def operator: ECAValue => ECAValue
+}
 
+//Length of an array; only usable in annotations
+case class ArrayLength(name: Expression) extends UnaryExpression {
+	def operand = name
+	override val operands = Seq(name)
+	val operatorName = "length"
+	
+	override val repr = "length(" + name.repr + ")"
+	def operator = (v => v)
+	
+	override def rewrite(ops: Seq[Expression]) = copy(name = ops(0))
+}
+
+//Dereference expression
+case class Dereference(exp: Expression) extends UnaryExpression {
+	def operand = exp
+	val operatorName = "*"
+	
+	override val repr = "deref(" + exp.repr + ")"
+	def operator = (v => v)
+	
+	override def rewrite(ops: Seq[Expression]) = copy(exp = ops(0))
+}
+
+//Reference expression
+case class Reference(exp: Expression) extends UnaryExpression {
+	def operand = exp
+	val operatorName = "&"
+	
+	override val repr = "ref(" + exp.repr + ")"
+	def operator = (v => v)
+	
+	override def rewrite(ops: Seq[Expression]) = copy(exp = ops(0))
+}
 
 sealed trait LogicalExpression extends NAryExpression
 
@@ -158,14 +342,22 @@ case class Or(left: Expression, right: Expression) extends BinaryExpression with
   val operatorName = "or"
   def operator = _ || _
 
-  def rewrite(ops: Seq[Expression]) = copy(left = ops(0), right = ops(1)).withPosition(position)
+  override def rewrite(ops: Seq[Expression]) = copy(left = ops(0), right = ops(1)).withPosition(position)
 }
 
 case class And(left: Expression, right: Expression) extends BinaryExpression with LogicalExpression {
   val operatorName = "and"
   def operator = _ && _
 
-  def rewrite(ops: Seq[Expression]) = copy(left = ops(0), right = ops(1)).withPosition(position)
+  override def rewrite(ops: Seq[Expression]) = copy(left = ops(0), right = ops(1)).withPosition(position)
+}
+
+case class Not(sub: Expression) extends UnaryExpression with LogicalExpression {
+	def operand = sub
+	def operator = !_
+	val operatorName = "not"
+	
+	override def rewrite(ops: Seq[Expression]) = copy(sub = ops(0)).withPosition(position)
 }
 
 
@@ -256,6 +448,8 @@ case class FunName(name: String, prefix: Option[String] = None) {
   val isPrefixed = prefix.isDefined
 
   override val toString = qualified
+  
+  override def equals(other: Any) = other.isInstanceOf[FunName] && other.asInstanceOf[FunName].name == name && other.asInstanceOf[FunName].prefix == prefix
 }
 
 case class FunCall(name: FunName, arguments: Seq[Expression]) extends NAryExpression with Statement {
@@ -264,6 +458,22 @@ case class FunCall(name: FunName, arguments: Seq[Expression]) extends NAryExpres
   val operands = arguments
 
   def rewrite(ops: Seq[Expression]) = copy(arguments = ops).withPosition(position)
+  
+  override def equals(other: Any) = {
+	if (other.isInstanceOf[FunCall]) {
+		var res = name == other.asInstanceOf[FunCall].name;
+		var i = 0;
+		for (exp <- operands) {
+			if (!(exp == other.asInstanceOf[FunCall].operands(i))) {
+				res = false;
+			}
+			i = i + 1;
+		}
+		res
+	} else {
+		false
+	}
+  }	
 }
 
 

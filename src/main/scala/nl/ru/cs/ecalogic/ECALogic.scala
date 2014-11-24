@@ -33,9 +33,11 @@
 package nl.ru.cs.ecalogic
 
 import parser.Parser
+import parser.CParser
 import analysis.{SemanticAnalysis, EnergyAnalysis}
 import util.{ErrorHandler, DefaultErrorHandler}
 import config.Options
+import ast._
 
 import scala.io.Source
 
@@ -53,6 +55,7 @@ object ECALogic {
   val defaultErrorHandler = new DefaultErrorHandler
 
   def report(fileName: String, state: (GlobalState, GlobalState)) {
+    if (Options.clike) println("C-like analysis:")
     println("Lower bound:")
     state._1.transform((_,st)=>st.energy) match {
       case result if Options.terse =>
@@ -76,26 +79,101 @@ object ECALogic {
           println(f"└ $name%13s\t$e%s")
     }
   }
+  
+  /**
+   * Applies ImpModel function aliases
+   * @arg aliases Seq of doubled map of regular function names to (componentname, compfunname)
+   */
+  def applyCompFunAliases(aliases: Seq[(String, (String, String))], node : ASTNode): ASTNode = {
+	node match {
+		case FunCall(name, args) if (name.isPrefixed == false) => {
+			val matching = Seq.newBuilder[(String, String)];
+			for (tup <- aliases) {
+				if (tup._1.compare(name.name) == 0) matching += tup._2; 
+			}
+			val matchingres = matching.result;
+			if (matchingres.length == 0) {
+				FunCall(name, args.map(a => applyCompFunAliases(aliases, a).asInstanceOf[Expression]))
+			} else {
+				val statements = Seq.newBuilder[Statement];
+				for (tup <- matchingres) {
+					statements += FunCall(FunName(tup._2, Some(tup._1)), args.map(a => applyCompFunAliases(aliases, a).asInstanceOf[Expression]));
+				}
+				val statementsres = statements.result;
+				if (statementsres.length == 1) {
+					statementsres.apply(0)
+				} else {
+					Composition(statementsres)
+				}
+			}
+		}
+		case Program(imports, functions, defs) => Program(imports, functions.map(pair => (pair._1, applyCompFunAliases(aliases, pair._2).asInstanceOf[FunDef])), defs)
+		case FunCall(name, args) => FunCall(name, args.map(a => applyCompFunAliases(aliases, a).asInstanceOf[Expression]))
+		case FunDef(name, params, body) => FunDef(name, params, applyCompFunAliases(aliases, body).asInstanceOf[Statement])
+		case If(pred, then, elses) => If(applyCompFunAliases(aliases, pred).asInstanceOf[Expression], applyCompFunAliases(aliases, then).asInstanceOf[Statement], applyCompFunAliases(aliases, elses).asInstanceOf[Statement])
+		case While(pred, lower, upper, cons) => While(applyCompFunAliases(aliases, pred).asInstanceOf[Expression], lower, upper, applyCompFunAliases(aliases, cons).asInstanceOf[Statement])
+		case Composition(stmts) => Composition(stmts.map(s => applyCompFunAliases(aliases, s).asInstanceOf[Statement]))
+		case Annotated(annots, stmt) => Annotated(annots, applyCompFunAliases(aliases, stmt).asInstanceOf[Statement])
+		case Assignment(variable, exp) => Assignment(variable, applyCompFunAliases(aliases, exp).asInstanceOf[Expression])
+		case ArrayDeclaration(name, subt, exp) => ArrayDeclaration(name, subt, applyCompFunAliases(aliases, exp).asInstanceOf[Expression])
+		case ArrayAssign(name, index, value) => ArrayAssign(name, applyCompFunAliases(aliases, index).asInstanceOf[Expression], applyCompFunAliases(aliases, value).asInstanceOf[Expression])
+		case StructAssign(name, field, value) => StructAssign(name, field, applyCompFunAliases(aliases, value).asInstanceOf[Expression])
+		case UnionAssign(name, field, value) => UnionAssign(name, field, applyCompFunAliases(aliases, value).asInstanceOf[Expression])
+		case ArrayAccess(name, index) => ArrayAccess(name, applyCompFunAliases(aliases, index).asInstanceOf[Expression])
+		case e : Expression => {
+				val newOperands = Seq.newBuilder[Expression];
+				for (op <- e.operands) newOperands += applyCompFunAliases(aliases, op).asInstanceOf[Expression];
+				e.rewrite(newOperands.result)
+			}
+		case n : ASTNode => n
+	}
+  }
+  
+  //Retrieves ImpModel function aliases and performs the initial call
+  def performCompFunAliases(comps: Map[String,ComponentModel], ast: ASTNode) : ASTNode = {
+    val aliases = Seq.newBuilder[(String, (String, String))];
+	for (pair <- comps) {
+		pair._2 match {
+			case comp : ImpModel => comp.processAliases(aliases);
+			case _ =>
+		}
+	}
+	println("Aliases found:");
+	for (pair <- aliases.result()) {
+		println(s"${pair._1} -> ${pair._2._1}::${pair._2._2}");
+	}
+	applyCompFunAliases(aliases.result(), ast)
+  }
 
   def analyse(fileName: String) = {
     val file = new File(fileName).getAbsoluteFile
     val source = defaultErrorHandler.report(Source.fromFile(file).mkString)
     val errorHandler = new DefaultErrorHandler(sourceText = Some(source), sourceURI = Some(file.toURI))
 
-    val program = errorHandler.reportAll("One or more errors occurred during parsing.") {
-      val parser = new Parser(source, errorHandler)
-      parser.program()
+    //val program = errorHandler.reportAll("One or more errors occurred during parsing.") {
+	val baseprogram = {
+	  if (Options.clike) {
+	    val parser = new CParser(errorHandler)
+		parser.program()
+	  } else {
+        val parser = new Parser(source, errorHandler)
+        parser.program()
+	  }
     }
 
     val components = errorHandler.reportAll("One or more errors occurred while loading components.") {
-      ComponentModel.fromImports(program.imports)
+      ComponentModel.fromImports(baseprogram.imports)
     } ++ forceComponents
+	
+	val program = performCompFunAliases(components, baseprogram).asInstanceOf[Program]
 
-    errorHandler.reportAll("One or more errors occurred during semantic analysis.") {
-      val checker = new SemanticAnalysis(program, components, errorHandler)
-      checker.functionCallHygiene()
-      checker.variableReferenceHygiene()
-    }
+    if (!Options.clike) {
+		errorHandler.reportAll("One or more errors occurred during semantic analysis.") {
+			val checker = new SemanticAnalysis(program, components, errorHandler)
+			checker.functionCallHygiene()
+			checker.variableReferenceHygiene()
+		}
+	}
 
     errorHandler.reportAll("One or more errors occurred during energy analysis.") {
       val consumptionAnalyser = new EnergyAnalysis(program, components, errorHandler)
@@ -137,16 +215,24 @@ object ECALogic {
         val name  = if(alias.isEmpty) file.getName.substring(0,file.getName.length-4) else alias
         val model = ECMModel.fromFile(file)
         forceComponents = forceComponents + (name->model)
+	  case fileName if fileName.endsWith(".java") =>
+        val (alias, trueFileName) = getAlias(fileName)
+		val file  = new File(trueFileName).getAbsoluteFile
+        val name  = if(alias.isEmpty) file.getName.substring(0,file.getName.length-5) else alias
+        val model = new ImpModel(name)
+        forceComponents = forceComponents + (name->model)
       case _ =>
         /* we will complain later :) */
     }
     fileArgs.foreach {
-      case fileName if fileName.endsWith(".eca") =>
+      case fileName if fileName.endsWith(".eca") || fileName.endsWith(".c") =>
         val state = analyse(fileName)
         report(fileName, state)
         idle = false
       case fileName if fileName.endsWith(".ecm") =>
         /* already handled */
+	  case fileName if fileName.endsWith(".java") =>
+		/* already handled */
       case fileName =>
         complain(s"File not recognized: $fileName")
     }
@@ -155,7 +241,8 @@ object ECALogic {
 
     0
   } catch {
-    case _: ECAException          =>
+    case e: ECAException          =>
+	  throw e
       Console.err.println("Aborted.")
       1
     case e: NumberFormatException =>

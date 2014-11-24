@@ -178,8 +178,9 @@ class DefaultErrorHandler(maxErrorCount: Int = 10,
   def errorOccurred: Boolean = errorCount > 0
 
   def fatalError(exception: ECAException) = {
-    printMessage("Fatal error", exception.message, exception.position, exception.stackTrace)
-    throw new ECAException(s"Fatal error occurred: ${exception.message}", exception).markReported
+    //printMessage("Fatal error", exception.message, exception.position, exception.stackTrace)
+    //throw new ECAException(s"Fatal error occurred: ${exception.message}", exception).markReported
+	throw exception
   }
 
   def error(exception: ECAException) {

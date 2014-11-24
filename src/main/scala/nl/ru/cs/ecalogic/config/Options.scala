@@ -42,6 +42,8 @@ TODO: adds some code that reads cmdline flags here.
  */
 
 object Options {
+  /* Whether to analyse a C-like language instead, more implications in the future */
+  var clike = false
 
   /* The "main" function to analyze; should change to 'main' in the future */
   var entryPoint = "program"
@@ -111,6 +113,11 @@ object Options {
     val newArgs = Array.newBuilder[String]
 
     args.foreach {
+	  case "-c" | "--clike"
+		=> clike = true
+		   entryPoint = "main"
+		   beforeSync = true
+		   afterSync = true
       case "-t" | "--terse"
         => terse = true
       case "-e" | "--entry"
@@ -142,13 +149,14 @@ object Options {
       case s
         => newArgs += s
     }
-
+    
     newArgs.result()
   }
 
   /* Reset values to their default values */
   def reset {
-    entryPoint = "program"
+    if (!clike) entryPoint = "program"
+	else entryPoint = "main"
     terse = false
     aliasOverrides = Seq.empty[String]
     Model.alwaysUpdate = false
@@ -164,11 +172,13 @@ object Options {
 
 Functionality options:
 
+  -c --clike             Analyses on a C-like syntax instead
   -t --terse             Give only brief output of analysis
   -I --import [W=]<uri>  Load a component from the Java classpath as W
   -h --help              This friendly help message
   -P --fixPatience <N>   Num iters for finding fixpoints (def=10000)
-  -e --entry <main>      Perform analyss in the given function (def=program)
+  -e --entry <main>      Perform analyss in the given function (def=program,
+                         or main with -c)
 
 If no Alias= is provided for an explicitly loaded component, it is determined
 from the classpath/filename instead.

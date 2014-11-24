@@ -73,7 +73,8 @@ class SemanticAnalysis(program: Program, components: Map[String, ComponentModel]
       case Annotated(_, stm)            => funCalls(stm)
       case FunCall(fun, args)           =>
         if (!fun.prefix.flatMap(components.get(_).map(_.hasFunctionInfo)).getOrElse(true)) {
-          eh.warning(new ECAException(s"Unchecked function call because component '${fun.prefix.get}' has no function information.", node))
+          //eh.warning(new ECAException(s"Unchecked function call because component '${fun.prefix.get}' has no function information.", node))
+		  println("Warning: No component function information to check.")
         } else {
           val arity = fun.prefix.map(components.get(_).flatMap(_.functionArity(fun.name))) getOrElse defs.get(fun.name).map(_.arity)
           arity match {
@@ -138,11 +139,11 @@ class SemanticAnalysis(program: Program, components: Map[String, ComponentModel]
        *
       */
       def varFlow(live: Set[String], node: ASTNode)(implicit params: Set[String]): Set[String] = node match {
-        case stm: Annotated               => val annotated = stm.annotations.keys.toSet
-                                             stm.annotations.foldLeft(params) {
+        case stm: Annotated               => val annotated = stm.annotations.keys.toSet.filter(e => e.isInstanceOf[VarRef]).map(v => v.asInstanceOf[VarRef].name)
+                                             stm.annotations.filter(tup => tup._1.isInstanceOf[VarRef]).foldLeft(params) {
                                                case (params, (name, expr)) =>
                                                  checkStaticExpression(live, params, expr)
-                                                 params + name
+                                                 params + name.asInstanceOf[VarRef].name
                                              }
                                              varFlow(live--annotated, stm.underlying)(params|annotated) | (live&annotated)
 

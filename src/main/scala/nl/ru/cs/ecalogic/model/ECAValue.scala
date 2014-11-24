@@ -38,16 +38,25 @@ import util.Polynomial
 import scala.math.{ScalaNumericConversions, ScalaNumber}
 import scala.collection.immutable.NumericRange
 
-class ECAValue private(private val value: BigInt) extends ScalaNumber with ScalaNumericConversions with Ordered[ECAValue] {
+class ECAValue (private val value: Double) extends ScalaNumber with ScalaNumericConversions with Ordered[ECAValue] {
 
-  def isWhole = true
+  def isWhole = value.isWhole()
+  
+  def pow(that: Int) : Double = {
+	var res : Double = value;
+	var tick = that-1;
+	while (tick > 0) {
+		res *= value;
+	}
+	res
+  }
 
   def +(that: ECAValue)  = new ECAValue(value + that.value)
   def -(that: ECAValue)  = new ECAValue(value - that.value)
   def *(that: ECAValue)  = new ECAValue(value * that.value)
   def /(that: ECAValue)  = new ECAValue(value / that.value)
   def %(that: ECAValue)  = new ECAValue(value % that.value)
-  def **(that: Int)      = new ECAValue(value pow that)
+  def **(that: Int)      = new ECAValue(pow(that))
   def unary_-            = new ECAValue(-value)
   def unary_+            = this
 
@@ -73,9 +82,9 @@ class ECAValue private(private val value: BigInt) extends ScalaNumber with Scala
   def floatValue  = value.floatValue
   def doubleValue = value.doubleValue
 
-  def underlying  = value
+  def underlying  = new java.lang.Double(value)
 
-  def toBigInt     = value
+  def toBigInt     = new BigInt(java.math.BigInteger.valueOf(value.toInt))
   def toPolynomial = Polynomial(value)
   def toBoolean    = this != ECAValue.False
 
@@ -87,6 +96,8 @@ class ECAValue private(private val value: BigInt) extends ScalaNumber with Scala
   override def hashCode = value.hashCode
 
   override def toString = value.toString
+  
+  def isArray = false
 
 }
 
@@ -100,11 +111,12 @@ object ECAValue {
   private val False = Zero
 
   implicit def valueToPoly(v: ECAValue): Polynomial = v.toPolynomial
-  implicit def valueToBigInt(v: ECAValue): BigInt   = v.toBigInt
+  implicit def valueToBigInt(v: ECAValue): BigInt   = v.toInt
   implicit def valueToInt(v: ECAValue): Int         = v.toInt
   implicit def valueToBoolean(v: ECAValue): Boolean = v.toBoolean
 
-  implicit def bigIntToValue(v: BigInt): ECAValue   = new ECAValue(v)
+  implicit def bigIntToValue(v: BigInt): ECAValue   = new ECAValue(v.toDouble)
+  implicit def doubleToValue(v: Double): ECAValue 	= new ECAValue(v)
   implicit def intToValue(v: Int): ECAValue         = new ECAValue(v)
   implicit def booleanToValue(v: Boolean): ECAValue = if (v) True else False
 

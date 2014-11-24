@@ -41,8 +41,11 @@ import config.Options.{Analysis => Config}
 
 import scala.collection.mutable
 import scala.io.Source
+import scala.collection.mutable.Builder
 
 import java.io.File
+
+import hcminterface._
 
 
 /**
@@ -55,8 +58,279 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
   import EnergyAnalysis._
 
 
-  type Environment = Map[String, Expression]
-
+  type Environment = Map[Expression, Expression]
+	
+	//Class representing a function signature: energy & time changes caused by a function stored as polynomials
+	class Signature(val energyConsumption: Map[String, (Polynomial, Polynomial)], val timeConsumption: Map[String, (Polynomial, Polynomial)], val stateOps: Map[String, (Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]], Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]])], val globalTimeStamp: (Polynomial, Polynomial)) {	
+		override def toString = {
+			var res : String = "Lower bound:\n";
+			
+			for (tup <- energyConsumption) {
+				res = res + tup._1 + ": " + tup._2._1.toString + " energy, " + timeConsumption.get(tup._1).get._1.toString + " time\n";
+			}
+			
+			res = res + "Global timestamp: " + globalTimeStamp._1.toString;
+			
+			res = res + "\nUpper bound:\n";
+			
+			for (tup <- energyConsumption) {
+				res = res + tup._1 + ": " + tup._2._2.toString + " energy, " + timeConsumption.get(tup._1).get._2.toString + " time\n";
+			}
+			
+			res = res + "Global timestamp: " + globalTimeStamp._1.toString;
+			
+			res
+		}
+	}
+  
+	//Other environment-like things that are kept track of for the C analysis
+	class CEnv() {
+		//Lengths of arrays as they are defined
+		var arrayLengths = Map.empty[Expression, Expression];
+		
+		//Function signatures
+		var functionSignatures = Map.empty[String, Signature];
+		
+		//Variable collection tracts used to keep track of diverging paths in individual statement HCM operational branches
+		//Could really do with a custom type instead of this monster
+		var collectionTracts = Map.empty[String, Map[String, Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]]]];
+		
+		//Current tract; "rootl" and "rootu" are the default for lower and upper bounds, and will be eventually used as the final tract
+		var currentTract = "rootu";
+		
+		//Add an operation to the current tract
+		def addOperation(comp: String, statevar: String, count: Polynomial, op: HCMOperation) = {
+			//Get the current tract
+			val resoption = collectionTracts.get(currentTract);
+			resoption match {
+				case None => println("Error: Couldn't find HCM state operation tract " + currentTract + "!");
+				case Some(tract) => {
+					//Get the component
+					val compoption = tract.get(comp);
+					compoption match {
+						case None => println("Error: Couldn't add to tract for missing component " + comp + "!");
+						case Some(builder) => {
+							//Add it
+							builder += ((statevar, count, op));
+						}
+					}
+				}
+			}
+		}
+		
+		//Create a tract; the globalstate is only used to get component names
+		def createTract(name: String, comps : GlobalState) {
+			val builder = Map.newBuilder[String, Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]]];
+			//Go through each component
+			for (tup <- comps.gamma) {
+				val compName = tup._1;
+				
+				//Create a new seqbuilder for this one and add it
+				builder += (compName -> Seq.newBuilder[(String, Polynomial, HCMOperation)]);
+			}
+			
+			//Add the actual tract
+			collectionTracts += (name -> builder.result);
+		}
+		
+		//Set the current tract
+		def setTract(name: String) {
+			currentTract = name;
+		}
+		
+		//WHERE WE AT:
+		/*
+		- ADD BACKUP/RESTORE
+		- ADD RETRIEVE/ADDTRACT
+		- ACTUALLY ADD THIS TO THE ANALYSIS STEPS
+		*/
+		
+		//Adds all elements of the specified tract to root
+		def solidifyTract(name: String, upper: Boolean) {
+			//Get the appropiate tracts
+			val rootoption = if (upper) {collectionTracts.get("rootu")} else {collectionTracts.get("rootl")};
+			rootoption match {
+				case None => println("Error: Couldn't get root tract!");
+				case Some(root) => {
+					val suboption = collectionTracts.get(name);
+					suboption match {
+						case None => println("Error: Couldn't solidify tract " + name + "!");
+						case Some(sub) => {
+							//For each element in sub
+							for (subtup <- sub) {
+								val compName = subtup._1;
+								val ops = subtup._2;
+								
+								//Get the appropiate builder from root
+								val rootboption = root.get(compName);
+								rootboption match {
+									case None => println("Error: Component mismatch between tracts!");
+									case Some(builder) => {
+										for (trip <- ops.result) builder += trip;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		//Clear all tracts except root, sets the current tract to rootu
+		def clearTracts() {
+			collectionTracts = collectionTracts.filter(tup => tup._1.equals("rootu") || tup._1.equals("rootl"));
+			setTract("rootu");
+		}
+		
+		//Applies the root tracts to the given function and clears them
+		def applyRoot(fun: String) {
+			//Get everything! Now this is nesting
+			val rootutractoption = collectionTracts.get("rootu");
+			rootutractoption match {
+				case None => println("Error: Couldn't get root upper-bound tract!");
+				case Some(rootutract) => {
+					val rootltractoption = collectionTracts.get("rootl");
+					rootltractoption match {
+						case None => println("Error: Couldn't get root lower-bound tract!");
+						case Some(rootltract) => {
+							val signatureoption = functionSignatures.get(fun);
+							signatureoption match {
+								case None => println("Error: No signature for function " + fun + " found!");
+								case Some(signature) => {
+									//We have all the tracts, now loop though the components
+									for (signaturetup <- signature.stateOps) {
+										val compname = signaturetup._1;
+										val signaturelowerbuilder = signaturetup._2._1;
+										val signatureupperbuilder = signaturetup._2._2;
+										
+										//Get the appropiate sequences
+										val lowertractoption = rootltract.get(compname);
+										lowertractoption match {
+											case None => println("Error: Component mismatch in tract merging!");
+											case Some(lowertract) => {
+												//Loop and add these
+												for (trip <- lowertract.result) signaturelowerbuilder += trip;
+												
+												//Clear it
+												lowertract.clear();
+											}
+										}
+										val uppertractoption = rootutract.get(compname);
+										uppertractoption match {
+											case None => println("Error: Component mismatch in tract merging!");
+											case Some(uppertract) => {
+												//Loop and add these
+												for (trip <- uppertract.result) signatureupperbuilder += trip;
+												
+												//Clear it
+												uppertract.clear();
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		def addArrayLength(name: Expression, length: Expression) = {
+			arrayLengths = arrayLengths + (name -> length);
+		}
+		
+		def addFunctionSignature(name: String, sig: Signature) = {
+			functionSignatures = functionSignatures + (name -> sig);
+		}
+		
+		def hasSignature(name: String) : Boolean = functionSignatures.contains(name);
+		
+		
+		def printSignatures() = {
+			println("\n**********************************");
+			println("Function signatures (unfinished!):\n");
+			for (tup <- functionSignatures) {
+				println(tup._1 + ":");
+				println(tup._2.toString + "\n");
+			}
+			println("**********************************\n");
+		}
+		
+		def applyArrayLengths(exp: Expression) : Expression = {
+			exp match {
+				case bin: BinaryExpression => bin.rewrite(Seq(applyArrayLengths(bin.left), applyArrayLengths(bin.right)))
+				case arrayL: ArrayLength => arrayLengths.get(arrayL.operand) match { case Some(exp) => exp case None => VarRef("Undefined Array Length") }
+				case un: UnaryExpression => un.rewrite(Seq(applyArrayLengths(un.operand)))
+				case e => e
+			}
+		}
+		
+		def clear() = {
+			arrayLengths = Map.empty[Expression, Expression];
+		}
+		
+		def copy() : CEnv = {
+			val nenv = new CEnv();
+			for (tup <- arrayLengths) nenv.addArrayLength(tup._1, tup._2);
+			for (tup <- functionSignatures) nenv.addFunctionSignature(tup._1, tup._2);
+			nenv
+		}
+	}
+	var cenv = new CEnv;
+	
+	//Extracts the difference between two tuples of two GlobalStates each as a signature, and creates an empty operation thing
+	def extractSignature(in: (GlobalState, GlobalState), out: (GlobalState, GlobalState)) : Signature = {
+		//Keep track of the results
+		var energyResult = Map.empty[String, (Polynomial, Polynomial)];
+		var timeResult = Map.empty[String, (Polynomial, Polynomial)];
+		var stateMap = Map.empty[String, (Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]], Builder[(String, Polynomial, HCMOperation), Seq[(String, Polynomial, HCMOperation)]])];
+		
+		//Go through each component
+		for (tup <- in._1.gamma) {
+			val compName = tup._1;
+			
+			//Get the lower energy change
+			val lowerEnergy = {
+				val before = in._1.gamma.get(compName).get.energy;
+				val after = out._1.gamma.get(compName).get.energy;
+				after - before
+			}
+			
+			//Get the upper energy change
+			val upperEnergy = {
+				val before = in._2.gamma.get(compName).get.energy;
+				val after = out._2.gamma.get(compName).get.energy;
+				after - before
+			}
+			
+			//Get the lower time change
+			val lowerTime = {
+				val before = in._1.gamma.get(compName).get.timestamp;
+				val after = out._1.gamma.get(compName).get.timestamp;
+				after - before
+			}
+			
+			//Get the upper time change
+			val upperTime = {
+				val before = in._2.gamma.get(compName).get.timestamp;
+				val after = out._2.gamma.get(compName).get.timestamp;
+				after - before
+			}
+			
+			//Add these results
+			energyResult += (compName -> (lowerEnergy, upperEnergy));
+			timeResult += (compName -> (lowerTime, upperTime));
+			stateMap += (compName -> (Seq.newBuilder[(String, Polynomial, HCMOperation)], Seq.newBuilder[(String, Polynomial, HCMOperation)]));
+		}
+		
+		//Get the global timestamp change
+		val lowerGlobal = out._1.t - in._1.t;
+		val upperGlobal = out._2.t - in._2.t;
+		
+		//Return the finished signature
+		new Signature(energyResult, timeResult, stateMap, (lowerGlobal, upperGlobal))
+	}
+	
   /** Performs the functions of both "r()" and "e()" in the FOPARA Paper
     *
     * @param t The new timestamp for components (should be in the past)
@@ -170,6 +444,7 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
         val rhs = resolve(r)
         if(!rhs.vars.isEmpty) eh.error(new ECAException("Integer required as an exponent.", r.position))
         resolve(l) ** rhs.coef().toInt
+	  case e : PrimaryExpression => e.repr
       case _ => eh.error(new ECAException("Could not resolve this value.", expr.position)); 0
     }
 
@@ -182,7 +457,11 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
      *
      */
     def analyse(G: GlobalState, node: ASTNode)(implicit env: Environment): (GlobalState, GlobalState) = node match {
-      case FunDef(name, parms, body)    => analyse(G,body)
+      case FunDef(name, parms, body)    => 	cenv.clear;
+											
+											//Initialize signature stuff
+											cenv.setTract("rootu");
+											analyse(G,body)
       case Skip()                       => (G, G)
       case If(pred, thenPart, elsePart) => val Gpre = if (Config.beforeSync) G.sync else G
                                            var G2 = analyse(Gpre,pred)
@@ -220,8 +499,10 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                            G2l = (G2l._1.update("CPU","w"), G2l._2.update("CPU","w"))
                                            val G3 = (analyse(G2._1,consq),analyse(G2._2,consq))
                                            val G3l = (analyse(G2l._1,consq),analyse(G2l._2,consq))
-                                           val iters = resolve(foldConstants(rf, env))
-                                           val iterslb = resolve(foldConstants(rfl, env))
+										   val rfsub = cenv.applyArrayLengths(rf)
+										   val rflsub = cenv.applyArrayLengths(rfl)
+                                           val iters = resolve(foldConstants(rfsub, env))
+                                           val iterslb = resolve(foldConstants(rflsub, env))
                                            if(Config.afterSync)
                                              (computeEnergyBound((G3l._1._1.sync min G3l._2._1.sync), Gpre, iterslb).timeshift,
                                                  computeEnergyBound(G3._2._2.sync max G3._1._2.sync, Gpre, iters).timeshift)
@@ -242,20 +523,49 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
                                                  args.foldLeft(G)(analyseSecond).update(component, fun.name))
 
       case FunCall(fun, args)           => val funDef = program.functions(fun.name)
+										   
+										   //val unresolved = analyse(G, funDef.body)(env)
+										   //if (!cenv.hasSignature(fun.name)) cenv.addFunctionSignature(fun.name, extractSignature((G, G), unresolved))
+										   
                                            val resolvedArgs = args.map(foldConstants(_, env))
-                                           val binding = funDef.parameters zip resolvedArgs
-                                           analyse(G, funDef.body)(env ++ binding)
+                                           val binding = funDef.parameters.map(n => VarRef(n)) zip resolvedArgs
+										   val oldcenv = cenv
+										   cenv = cenv.copy()
+                                           val res = analyse(G, funDef.body)(env ++ binding)
+										   cenv = oldcenv
+										   res
 
       case stm:Annotated                => val annotatedEnv = stm.annotations.foldLeft(env) {
                                              case (env, (name, expr)) => env+(name->foldConstants(expr, env))
                                            }
                                            analyse(G, stm.underlying)(annotatedEnv)
-
+						   
       case e:NAryExpression             => (e.operands.foldLeft(G)(analyseFirst).update("CPU", "e"),
     		  									e.operands.foldLeft(G)(analyseSecond).update("CPU", "e"))
+												
+	  case acc:ArrayAccess => (acc.accoperands.foldLeft(G)(analyseFirst).update("CPU", "macc"),
+    		  									acc.accoperands.foldLeft(G)(analyseSecond).update("CPU", "macc"))
+	  case acc:StructAccess => (acc.accoperands.foldLeft(G)(analyseFirst).update("CPU", "macc"),
+    		  									acc.accoperands.foldLeft(G)(analyseSecond).update("CPU", "macc"))
+	  case acc:UnionAccess => (acc.accoperands.foldLeft(G)(analyseFirst).update("CPU", "macc"),
+    		  									acc.accoperands.foldLeft(G)(analyseSecond).update("CPU", "macc"))
       case _:PrimaryExpression          => (G, G)
+	  
+	  case ArrayDeclaration(name, subtype, length) => cenv.addArrayLength(name, length);
+										analyse(G.update("CPU", "mdec"), length)
+	  
+	  case ArrayAssign(name, index, value) => var G2 = analyse(G, index);
+											(analyseFirst(G2._1, value).update("CPU", "a").update("CPU", "macc"), analyseSecond(G2._2, value).update("CPU", "a").update("CPU", "macc"))	
+
+	  case StructAssign(name, field, value) => analyse(G.update("CPU", "a").update("CPU", "macc"), value)
+	  
+	  case UnionAssign(name, field, value) => analyse(G.update("CPU", "a").update("CPU", "macc"), value)
 
       case w@While(pred, None, _,consq)   => eh.fatalError(new ECAException("Cannot analyse boundless while-loop", node.position))
+	  
+	  case Break() => (G, G)
+	  
+	  case Continue() => (G, G)
     }
     
     def analyseFirst (G: GlobalState, node: ASTNode)(implicit env: Environment): GlobalState = (
@@ -264,12 +574,33 @@ class EnergyAnalysis(program: Program, components: Map[String, ComponentModel], 
     def analyseSecond (G: GlobalState, node: ASTNode)(implicit env: Environment): GlobalState = (
           analyse(G, node)._2
     ) 
-
-    val initialState = GlobalState.initial(Map("CPU" -> Pentium0) ++ components)
-    val root         = program.functions.getOrElse(entryPoint, throw new ECAException(s"No $entryPoint function to analyse."))
+	
+    val initialState = if (components.contains("CPU")) {
+		GlobalState.initial(components)
+	} else {
+		println("\nWarning: No CPU component found, defaulting to a non-consuming one!");
+		GlobalState.initial(Map("CPU" -> Pentium0) ++ components)
+	}
+    
+	//Get function signatures for all except the entrypoint
+	for (f <- program.functions) {
+		if (!f._2.name.equals(entryPoint)) {
+			val rest = analyse(initialState, f._2.body)(Map.empty);
+			val rest_sync = (rest._1.sync, rest._2.sync);
+			cenv.addFunctionSignature(f._2.name, extractSignature((initialState, initialState), rest_sync));
+		}
+	}
+	
+	//Analyse the entrypoint
+	val root         = program.functions.getOrElse(entryPoint, throw new ECAException(s"No $entryPoint function to analyse."))
     val finalState   = analyse(initialState, root)(Map.empty)
     finalState._1.sync
     finalState._2.sync
+	
+	//Print signatures
+	cenv.printSignatures
+	
+	//Return
     finalState
   }
 }
@@ -281,8 +612,8 @@ object EnergyAnalysis {
     */
 
   object Pentium0 extends DSLModel("CPU") {
-    define T (e = 0, a = 0, w = 0, ite = 0)
-    define E (e = 0, a = 0, w = 0, ite = 0)
+    define T (e = 0, a = 0, w = 0, ite = 0, mdec = 0, macc = 0)
+    define E (e = 0, a = 0, w = 0, ite = 0, mdec = 0, macc = 0)
   }
 
   /** The main function you want to use for debugging the analysis;

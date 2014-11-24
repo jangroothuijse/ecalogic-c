@@ -98,6 +98,7 @@ trait BaseInterpreter {
       }
     case Annotated(_, stmt) =>
       evalStatement(stmt, state, stackTrace)
+	case _ => state
   }
 
   protected def evalExprList(exprs: Seq[Expression], state: IState, stackTrace: StackTraceBuilder) =
