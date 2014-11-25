@@ -27,7 +27,7 @@ public class Test {
 			public boolean visit(VariableDeclarationFragment node) {
 				SimpleName name = node.getName();
 				this.names.add(name.getIdentifier());
-				System.out.println("Declaration of '"+name+"' at line"+cu.getLineNumber(name.getStartPosition()));
+				System.out.println("Declaration of variable '"+name+"' at line "+cu.getLineNumber(name.getStartPosition()));
 				return false; // do not continue to avoid usage info
 			}
  
