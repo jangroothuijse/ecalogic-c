@@ -1,4 +1,5 @@
-package main.scala.nl.ru.cs.ecalogic.translate
+package nl.ru.cs.ecalogic
+package translate
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
