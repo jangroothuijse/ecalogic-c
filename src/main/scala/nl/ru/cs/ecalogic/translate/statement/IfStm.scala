@@ -1,35 +1,44 @@
 package nl.ru.cs.ecalogic
-package translate.expression
+package translate.statement
 
-import org.eclipse.jdt.core.dom.ASTVisitor;
-import org.eclipse.jdt.core.dom.WhileStatement;
-import translate.Visitor
+import org.eclipse.jdt.core.dom.ASTVisitor
+import org.eclipse.jdt.core.dom.IfStatement
+import org.eclipse.jdt.core.dom.WhileStatement
+import org.eclipse.jdt.core.dom.Statement
+import nl.ru.cs.ecalogic.translate.Visitor
+import nl.ru.cs.ecalogic.translate.NotImplementedVisitor;
 import ast.If
 import ast.Skip
 import ast.Expression
-import ast.Statement
 
-class IfStm extends ASTVisitor with Visitor[If] {
-  var predicate : Option[Expression] = None
-  var consequent: Option[Statement] = None
-  var alt: Option[Statement] = None
-  
-  // visit functions
-  override def visit(node: WhileStatement) : Boolean = {
-    return false;
+class Stm(node: Statement) extends ASTVisitor with Visitor[ast.Composition] {
+  def result(): Option[ast.Composition] = {
+    Option.empty
   }
-  
-  
-  def result() : Option[If] = 
-    predicate match {
+}
+
+class IfStm(node: IfStatement) extends ASTVisitor with Visitor[If] {
+
+  def result(): Option[If] = {
+    val predicateVisitor = new NotImplementedVisitor
+    node.getExpression.accept(predicateVisitor)
+    predicateVisitor.result() match {
       case None => Option.empty
-      case Some(p) => consequent match {        
-        case None => Option.empty
-        case Some(c) => alt match {
-          case None => Option.apply(new If(p, c, new Skip))
-          case Some(a) => Option.apply(new If(p, c, a))
-        } 
+      case Some(p) => {
+        val then = new Stm(node.getThenStatement)
+        then.result() match {
+          case None => Option.empty
+          case Some(t) => if (node.getElseStatement == null) {
+            Some(new If(p, t, new Skip))
+          } else {
+            val elseVisitor = new Stm(node.getElseStatement);
+            elseVisitor.result() match {
+              case None    => Some(new If(p, t, new Skip))
+              case Some(e) => Some(new If(p, t, e))
+            }
+          }
+        }
       }
-    } 
-  
+    }
+  }
 }
