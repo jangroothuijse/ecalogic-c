@@ -17,6 +17,9 @@ import org.eclipse.jdt.core.dom.Block
 class Stm extends TranslateVisitor[ast.Statement] {  
   val statements: Seq[ast.Statement] = List();
   
+  /**
+   * Handles block statements, will become a composition if its more than one.
+   */
   override def visit(block : Block) : Boolean = {
     for (node <- block.statements().toArray()) {
       val result = new Stm().acceptResult(node.asInstanceOf[Statement])
@@ -24,13 +27,28 @@ class Stm extends TranslateVisitor[ast.Statement] {
         case None => 
         case Some(v) => statements.+:(v) 
       }
-     
+    }
+    false
+  }
+  
+  /**
+   * Handles if statements
+   */
+  override def visit(ifthenelse : IfStatement) : Boolean = {
+    new IfStm(ifthenelse).result() match { 
+      case None => 
+      case Some(node) => statements.+:()
     }
     false
   }
   
   def result(): Option[ast.Statement] = {
-    Some(new ast.Composition(statements))
+    statements.length match {
+      case 0 => Option.empty
+      case 1 => Some(statements.head);
+      case _ => Some(new ast.Composition(statements)) 
+    }
+    
   }
 }
 
