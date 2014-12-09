@@ -3,6 +3,7 @@ package translate
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.SimpleName;
@@ -21,6 +22,7 @@ trait Visitor[A] {
    * To be called after the object has a chance to visit the nodes.
    */
   def result() : Option[A]
+  
 }
 
 /**
@@ -28,4 +30,11 @@ trait Visitor[A] {
  */
 class NotImplementedVisitor[A]() extends ASTVisitor with Visitor[A] {
   def result() : Option[A] = Option.empty;
+}
+
+abstract class TranslateVisitor[A] extends ASTVisitor with Visitor[A] {
+  def acceptResult(node : ASTNode) : Option[A] = {
+    node.accept(this);
+    this.result();
+  }
 }
