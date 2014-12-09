@@ -35,7 +35,7 @@ object STest {
  
       var names: Set[String] = new HashSet();
       
-      p.imports.++:("Hoi", Import([""]));
+      //p.imports.++:("Hoi", Import([""]));
       
       override def visit(node: WhileStatement) : Boolean = {
         System.out.println("Usage of while detected; we should throw an error")
