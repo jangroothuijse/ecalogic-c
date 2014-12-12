@@ -4,11 +4,13 @@ package translate.statement
 import org.eclipse.jdt.core.dom.ASTVisitor
 import org.eclipse.jdt.core.dom.IfStatement
 import org.eclipse.jdt.core.dom.WhileStatement
+import org.eclipse.jdt.core.dom.ForStatement
 import org.eclipse.jdt.core.dom.Statement
 import nl.ru.cs.ecalogic.translate.TranslateVisitor
 import nl.ru.cs.ecalogic.translate.NotImplementedVisitor;
 import ast.If
 import ast.Skip
+import ast.While
 import ast.Expression
 
 import org.eclipse.jdt.core.dom.Block
@@ -73,5 +75,15 @@ class IfStm(node: IfStatement) extends TranslateVisitor[If] {
         }
       }
     }
+  }
+}
+
+class ForStm(node: ForStatement) extends TranslateVisitor[While] {
+  def result(): Option[While] = {
+    val initVisitor = new NotImplementedVisitor
+    val expressionVisitor = new NotImplementedVisitor
+    val updateVisotor = new NotImplementedVisitor
+    val body = new Stm().acceptResult(node.getBody);
+    Option.empty
   }
 }
