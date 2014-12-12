@@ -33,6 +33,10 @@ class Stm extends TranslateVisitor[ast.Statement] {
     false
   }
   
+  override def visit(w: WhileStatement) : Boolean = {
+    throw new ECAException("While not permitted, use a for loop and annotate its bound in an initializer.");
+  }
+  
   /**
    * Handles if statements
    */
