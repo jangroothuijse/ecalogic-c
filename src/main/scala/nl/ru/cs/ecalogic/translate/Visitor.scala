@@ -28,7 +28,7 @@ trait Visitor[A] {
 /**
  * Default mock/stub implementation.
  */
-class NotImplementedVisitor[A]() extends ASTVisitor with Visitor[A] {
+class NotImplementedVisitor[A]() extends TranslateVisitor[A] {
   def result() : Option[A] = Option.empty;
 }
 
