@@ -28,7 +28,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
   override def visit(a: Assignment) : Boolean = {
     new NotImplementedVisitor().acceptResult(a.getLeftHandSide()) match {
       case None => 
-      case Some(lhs) => new NotImplementedVisitor().acceptResult(a.getRightHandSide()) match {
+      case Some(lhs) => new ExpressionVisitor().acceptResult(a.getRightHandSide()) match {
         case None => 
         case Some(rhs) => 
           // @see http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAssignment.Operator.html
@@ -93,7 +93,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
 class IfStm(node: IfStatement) extends TranslateVisitor[If] {
 
   def result(): Option[If] = {
-    val predicateVisitor = new NotImplementedVisitor
+    val predicateVisitor = new ExpressionVisitor
     node.getExpression.accept(predicateVisitor)
     predicateVisitor.result() match {
       case None => Option.empty
@@ -116,9 +116,9 @@ class IfStm(node: IfStatement) extends TranslateVisitor[If] {
 
 class ForStm(node: ForStatement) extends TranslateVisitor[While] {
   def result(): Option[While] = {
-    val initVisitor = new NotImplementedVisitor
-    val expressionVisitor = new NotImplementedVisitor
-    val updateVisotor = new NotImplementedVisitor
+    val initVisitor = new ExpressionVisitor
+    val expressionVisitor = new ExpressionVisitor
+    val updateVisotor = new ExpressionVisitor
     new Stm().acceptResult(node.getBody) match {
       case None => Option.empty
       case Some(body) => Option.empty

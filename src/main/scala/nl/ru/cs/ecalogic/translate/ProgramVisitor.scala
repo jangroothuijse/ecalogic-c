@@ -8,7 +8,7 @@ import org.eclipse.jdt.core.dom.TypeDeclaration
 import org.eclipse.jdt.core.dom.DoStatement
 import org.eclipse.jdt.core.dom.ForStatement
 import org.eclipse.jdt.core.dom.IExtendedModifier
-import org.eclipse.jdt.core.dom.Assignment
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment
 import nl.ru.cs.ecalogic.translate.TranslateVisitor
 import nl.ru.cs.ecalogic.translate.NotImplementedVisitor
@@ -44,15 +44,33 @@ class ProgramVisitor extends TranslateVisitor[Program] {
     for (field <- t.getFields) {
       // TODO: check if its static
       field.accept(new ASTVisitor() {
-        override def visit(vdf: VariableDeclarationFragment) : Boolean = {
-          vdf.getName.getIdentifier
-          // we dont have ASTType ... :(
-          // otherwise we now have a name and a type, so we can add it to the fields
+        override def visit(vdf: VariableDeclarationFragment) : Boolean = {          
+          new TypeVisitor().acceptResult(field.getType) match {
+            case None =>
+            case Some(astType) =>
+              fields.+((vdf.getName.getIdentifier, astType))
+          }
           false
         }
       })
     }
     defs.+((name, new StructDef(name, fields)))
+    
+    for (fun <- t.getMethods) {
+      new Stm().acceptResult(fun.getBody()) match {
+          case None =>
+          case Some(body) =>
+            functions.+(
+              (fun.getName.getIdentifier,  
+              new FunDef(
+                fun.getName.getIdentifier, 
+                for (f <- fun.parameters().toArray()) 
+                  yield f.asInstanceOf[SingleVariableDeclaration].getName.getIdentifier,
+                body
+              ))
+            )
+      }
+    }
     
     // parse functions, prepend their name with our name
     false
