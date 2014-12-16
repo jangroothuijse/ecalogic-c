@@ -10,6 +10,20 @@ import main.scala.nl.ru.cs.ecalogic.model.examples.JavaRadio;
  * where not found.
  */
 public class RadioProgram {
+	public int foo = 1;
+	static int bar = 1;
+	
+	class Foo {
+		void bla() {
+			this.getClass();
+		}
+	}
+	// 
+	// RadioProgram_Foo_bla(Foo this)
+	// bla1 = new Foo()
+	// bla1.bla() => Foo_bla(bla1)
+	// 
+	
 	static void algorithm1(int x, int xdiv10) {		
 		JavaRadio.on();
 		for (@ECAForBound(lower = "x", upper = "x") int i = 0; i < x; i++) {
@@ -21,7 +35,7 @@ public class RadioProgram {
 		algorithm1(x, x * 10);
 	}
 	
-	static void main(String[] args) {
+	public static void main(String[] args) {
 		start(10);
 	}
 }

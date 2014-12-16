@@ -1,5 +1,5 @@
 package nl.ru.cs.ecalogic
-package translate.statement
+package translate
 
 // http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAST.html
 import org.eclipse.jdt.core.dom.ASTVisitor
@@ -70,10 +70,15 @@ class Stm extends TranslateVisitor[ast.Statement] {
   override def visit(ifthenelse : IfStatement) : Boolean = {
     new IfStm(ifthenelse).result() match { 
       case None => 
-      case Some(node) => statements.+:()
+      case Some(node) => statements.+:(node)
     }
     false
   }
+  
+  // visit todo's:
+  //   expression statement
+  //   variable declaration
+  //   return statement?
   
   def result(): Option[ast.Statement] = {
     statements.length match {
