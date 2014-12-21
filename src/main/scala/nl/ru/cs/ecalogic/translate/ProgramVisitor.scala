@@ -10,8 +10,6 @@ import org.eclipse.jdt.core.dom.ForStatement
 import org.eclipse.jdt.core.dom.IExtendedModifier
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment
-import nl.ru.cs.ecalogic.translate.TranslateVisitor
-import nl.ru.cs.ecalogic.translate.NotImplementedVisitor
 import ast.Program
 import ast.Import
 import ast.FunDef

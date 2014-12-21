@@ -33,7 +33,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
         case Some(rhs) => 
           // @see http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAssignment.Operator.html
           if (a.getOperator == Assignment.Operator.ASSIGN) {
-            statements.+:(new ast.Assignment("", rhs))
+            statements.+:(new ast.Assignment("", rhs._2))
           } else {
             // handle all other Operator. constants, by applying what every they do to rhs
           }
@@ -97,15 +97,15 @@ class IfStm(node: IfStatement) extends TranslateVisitor[If] {
     node.getExpression.accept(predicateVisitor)
     predicateVisitor.result() match {
       case None => Option.empty
-      case Some(p) => {
+      case Some(p) => {        
         new Stm().acceptResult(node.getThenStatement)  match {
           case None => Option.empty
           case Some(t) => if (node.getElseStatement == null) {
-            Some(new If(p, t, new Skip))
+            Some(new If(p._2, t, new Skip))
           } else {
             new Stm().acceptResult(node.getElseStatement) match {
-              case None    => Some(new If(p, t, new Skip))
-              case Some(e) => Some(new If(p, t, e))
+              case None    => Some(new If(p._2, t, new Skip))
+              case Some(e) => Some(new If(p._2, t, e))
             }
           }
         }
