@@ -31,9 +31,14 @@
  */
 
 package nl.ru.cs.ecalogic
+package translate
 
 import parser.Parser
 import parser.CParser
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.ASTVisitor;
+import org.eclipse.jdt.core.dom.CompilationUnit;
 import analysis.{SemanticAnalysis, EnergyAnalysis}
 import util.{ErrorHandler, DefaultErrorHandler}
 import config.Options
@@ -107,7 +112,8 @@ object ECALogic {
 				}
 			}
 		}
-		case Program(imports, functions, defs) => Program(imports, functions.map(pair => (pair._1, applyCompFunAliases(aliases, pair._2).asInstanceOf[FunDef])), defs)
+		
+    case Program(imports, functions, defs) => Program(imports, functions.map(pair => (pair._1, applyCompFunAliases(aliases, pair._2).asInstanceOf[FunDef])), defs)
 		case FunCall(name, args) => FunCall(name, args.map(a => applyCompFunAliases(aliases, a).asInstanceOf[Expression]))
 		case FunDef(name, params, body) => FunDef(name, params, applyCompFunAliases(aliases, body).asInstanceOf[Statement])
 		case If(pred, then, elses) => If(applyCompFunAliases(aliases, pred).asInstanceOf[Expression], applyCompFunAliases(aliases, then).asInstanceOf[Statement], applyCompFunAliases(aliases, elses).asInstanceOf[Statement])
@@ -176,9 +182,21 @@ object ECALogic {
 	}
 
     errorHandler.reportAll("One or more errors occurred during energy analysis.") {
-      val consumptionAnalyser = new EnergyAnalysis(program, components, errorHandler)
-      consumptionAnalyser.analyse(Options.entryPoint)
-    }
+      /* analysis entryPoint */
+      /* start new analyses */
+    val parser: ASTParser = ASTParser.newParser(AST.JLS3);
+    parser.setSource(Source.fromFile(file).mkString.toArray)
+    //parser.setSource("/*abc*/".toCharArray());
+    parser.setKind(ASTParser.K_COMPILATION_UNIT);
+    //ASTNode node = parser.createAST(null);
+  
+    val cu: CompilationUnit = parser.createAST(null).asInstanceOf[CompilationUnit];
+    val consumptionAnalyser = new EnergyAnalysis(new ProgramVisitor().acceptResult(cu).asInstanceOf[Program], components, errorHandler); 
+         consumptionAnalyser.analyse(Options.entryPoint) 
+    
+  }
+
+    
   }
 
   /* if arg is of the form name=file.ext, return (name, file.ext);
@@ -198,6 +216,8 @@ object ECALogic {
   }
 
   def main_(args: Array[String]): Int = try {
+
+   
     var idle = true
     val fileArgs = config.Options(args)
 
@@ -205,7 +225,7 @@ object ECALogic {
       case bindSpec =>
         val (alias, trueClassName) = getAlias(bindSpec)
         val classPath = trueClassName.split('.')
-        val model = ComponentModel.fromImport(Import(classPath, if(alias.isEmpty) classPath.last else alias))
+        val model = ComponentModel.fromImport(ast.Import(classPath, if(alias.isEmpty) classPath.last else alias))
         forceComponents = forceComponents + (alias->model)
     }
     fileArgs.foreach {
@@ -215,6 +235,7 @@ object ECALogic {
         val name  = if(alias.isEmpty) file.getName.substring(0,file.getName.length-4) else alias
         val model = ECMModel.fromFile(file)
         forceComponents = forceComponents + (name->model)
+        /* where the java input file gets read */
 	  case fileName if fileName.endsWith(".java") =>
         val (alias, trueFileName) = getAlias(fileName)
 		val file  = new File(trueFileName).getAbsoluteFile
@@ -225,6 +246,7 @@ object ECALogic {
         /* we will complain later :) */
     }
     fileArgs.foreach {
+      /* This is where the input file gets read */
       case fileName if fileName.endsWith(".eca") || fileName.endsWith(".c") =>
         val state = analyse(fileName)
         report(fileName, state)
