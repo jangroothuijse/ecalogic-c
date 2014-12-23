@@ -43,7 +43,7 @@ class ProgramVisitor extends TranslateVisitor[Program] {
       // TODO: check if its static
       field.accept(new ASTVisitor() {
         override def visit(vdf: VariableDeclarationFragment) : Boolean = {          
-          new TypeVisitor().acceptResult(field.getType) match {
+          new TypeVisitor(field.getType).result() match {
             case None =>
             case Some(astType) =>
               fields.+((vdf.getName.getIdentifier, astType))
