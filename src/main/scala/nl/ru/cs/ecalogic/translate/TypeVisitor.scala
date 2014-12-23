@@ -5,10 +5,15 @@ import nl.ru.cs.ecalogic.ast
 import nl.ru.cs.ecalogic.translate.Stm
 import org.eclipse.jdt.core.dom.Type
 import org.eclipse.jdt.core.dom.PrimitiveType
+import org.eclipse.jdt.core.dom.ArrayType
+import org.eclipse.jdt.core.dom.SimpleType
+
 import ast.ASTIntegerT
 import ast.ASTRealT
 import ast.ASTVoidT
 import ast.ASTUnionT
+import ast.ASTArrayT
+import ast.ASTStructT
 
 /**
  * Transform Java types to Ecalogic types
@@ -42,18 +47,23 @@ class TypeVisitor(node: Type) extends NotImplementedVisitor[ast.ASTType]{
         case float => Some(new ASTRealT())
         case double => Some(new ASTRealT())
         case void => Some(new ASTVoidT())
-        case boolean => Some(new ASTUnionT("")) // boolean instead of string 
+        case boolean => Some(new ASTUnionT("Boolean")) // boolean instead of string 
       }
+      None;
+    }   
+    else if (whatType.isInstanceOf[ArrayType]) {
+      val typeArray = node.asInstanceOf[ArrayType]
+      new TypeVisitor(typeArray.getComponentType()).result match {
+        case Some(component) => Some(new ASTArrayT(component))
+       }
       None
-      } else None
-    
-//    else if (whatType.isArrayType() == true) {
-//        val typeArray = new ArrayType
-//        node.getComponentType().accept(typeArray)
-//        typeArray.result() match {
-//          
-//        }          
-          
-   
+    }
+    else if (whatType.isInstanceOf[SimpleType]) {
+      val typeObject = node.asInstanceOf[SimpleType]      
+        Some(new ASTStructT(typeObject.getName().getFullyQualifiedName))      
+    }
+    else None
+            
+  None
   }  
 }
