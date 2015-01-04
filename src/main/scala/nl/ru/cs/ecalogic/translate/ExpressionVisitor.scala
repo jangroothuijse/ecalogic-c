@@ -166,6 +166,15 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
     false 
   }
   override def visit(node: PostfixExpression) : Boolean = { 
+    new ExpressionVisitor().acceptResult(node.getOperand) match {
+      case None => 
+      case Some(a) =>
+        if (node.getOperator == PostfixExpression.Operator.DECREMENT) {
+          e = Some(new ast.Subtract(a._2, new ast.Literal(new model.ECAValue(1))))
+        } else if (node.getOperator == PostfixExpression.Operator.INCREMENT) {
+          e = Some(new ast.Add(a._2, new ast.Literal(new model.ECAValue(1))))
+        } else throw new ECAException("Operator unsupported: " + node.getOperator.toString);
+    }
     false 
   }
   override def visit(node: PrefixExpression) : Boolean = { 
