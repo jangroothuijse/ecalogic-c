@@ -10,6 +10,7 @@ import org.eclipse.jdt.core.dom.ForStatement
 import org.eclipse.jdt.core.dom.Statement
 import org.eclipse.jdt.core.dom.Assignment
 import org.eclipse.jdt.core.dom.Assignment.Operator
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment
 import nl.ru.cs.ecalogic.translate.TranslateVisitor
 import nl.ru.cs.ecalogic.translate.NotImplementedVisitor;
 import ast.If
@@ -40,6 +41,20 @@ class Stm extends TranslateVisitor[ast.Statement] {
       }
     }
     false
+  }
+  
+  override def visit(d: VariableDeclarationFragment) : Boolean = {
+    /*
+     * EcaLogic does not have variable declarations, but the initializers translate to assignments.
+     */
+    if (d.getInitializer == null) false
+    else {
+      new ExpressionVisitor().acceptResult(d.getInitializer()) match {
+        case None =>
+        case Some(rhs) => statements .+:(new ast.Assignment(d.getName.getIdentifier, rhs._2));
+      }
+      false
+    }
   }
   
   /**
