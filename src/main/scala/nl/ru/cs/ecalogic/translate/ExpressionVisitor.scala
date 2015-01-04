@@ -21,6 +21,8 @@ import org.eclipse.jdt.core.dom.PrefixExpression
 
 import org.eclipse.jdt.core.dom.ThisExpression
 
+import org.eclipse.jdt.core.dom.InfixExpression.Operator
+
 /**
  * Visits expressions, can cross over to Statements again using expression statement
  * an assignment in an expression would be such and expression statement.
@@ -106,7 +108,61 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    * Operators:
    */
   
-  override def visit(node: InfixExpression) : Boolean = { 
+  override def visit(node: InfixExpression) : Boolean = {
+    new ExpressionVisitor().acceptResult(node.getLeftOperand) match {
+      case None => 
+      case Some(lhs) => new ExpressionVisitor().acceptResult(node.getRightOperand) match {
+        case None => 
+        case Some(rhs) => 
+          if (node.getOperator == Operator.OR | node.getOperator == Operator.CONDITIONAL_OR) {
+            e = Some(ast.Or(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.AND | node.getOperator == Operator.CONDITIONAL_AND) {
+            e = Some(ast.And(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.PLUS) {
+            e = Some(ast.Add(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.MINUS) {
+            e = Some(ast.Subtract(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.TIMES) {
+            e = Some(ast.Multiply(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.DIVIDE) {
+            e = Some(ast.Divide(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.EQUALS) {
+            e = Some(ast.EQ(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.NOT_EQUALS) {
+            e = Some(ast.NE(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.LESS) {
+            e = Some(ast.LT(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.LESS_EQUALS) {
+            e = Some(ast.LE(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.GREATER) {
+            e = Some(ast.GT(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.GREATER_EQUALS) {
+            e = Some(ast.GE(lhs._2, rhs._2));
+          } else if (node.getOperator == Operator.LEFT_SHIFT) {
+            e = Some(ast.Multiply(lhs._2,
+                 new ast.Exponent(
+                      new ast.Literal(new model.ECAValue(2)),
+                      rhs._2
+                 )
+            ))
+          } else if (node.getOperator == Operator.RIGHT_SHIFT_SIGNED
+              | node.getOperator == Operator.RIGHT_SHIFT_UNSIGNED) {
+            e = Some(ast.Divide(lhs._2,
+                 new ast.Exponent(
+                      new ast.Literal(new model.ECAValue(2)),
+                      rhs._2
+                 )
+            ))
+          } else if (node.getOperator == Operator.REMAINDER) {
+            e = Some(ast.Subtract(lhs._2, 
+                new ast.Multiply(rhs._2,
+                     new ast.Divide(lhs._2, rhs._2) 
+                  )            
+            ))
+          } else throw new ECAException("Operator unsupported: " + node.getOperator.toString);
+      }
+    } 
+      
     false 
   }
   override def visit(node: PostfixExpression) : Boolean = { 
