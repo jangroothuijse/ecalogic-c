@@ -98,10 +98,20 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    */
   
   override def visit(node: SimpleName) : Boolean = { 
+    e = Some(ast.VarRef(node.getIdentifier))
     false 
   }
   override def visit(node: MethodInvocation) : Boolean = { 
-    false 
+    val args : Seq[ast.Expression] = Seq();
+    for (o : Object <- node.arguments.toArray()) {
+      val e = o.asInstanceOf[Expression];
+      new ExpressionVisitor().acceptResult(e) match {
+        case None =>
+        case Some(ae) => args.+:(ae._2);
+      }
+    }
+    e = Some(ast.FunCall(ast.FunName(node.getName().getFullyQualifiedName()), args)); 
+    false
   }
   
   /*
