@@ -82,7 +82,10 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    */
   
   override def visit(node: BooleanLiteral) : Boolean = { 
-    e = Some(ast.VarRef(node.booleanValue))
+    new ExpressionVisitor().acceptResult(node.booleanValue) match {
+      case true => e = Some(ast.Literal(new model.ECAValue(1)))
+      case false => e = Some(ast.Literal(new model.ECAValue(0)))      
+    }    
     false 
   }
   override def visit(node: CharacterLiteral) : Boolean = { 
