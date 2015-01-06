@@ -69,6 +69,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
     false 
   }
   override def visit(node: FieldAccess) : Boolean = { 
+    // object.field foo().bla
     false 
   }
   override def visit(node: ThisExpression) : Boolean = { 
@@ -81,18 +82,23 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    */
   
   override def visit(node: BooleanLiteral) : Boolean = { 
+    e = Some(ast.VarRef(node.booleanValue))
     false 
   }
   override def visit(node: CharacterLiteral) : Boolean = { 
+    e = Some(ast.VarRef(node.charValue))
     false 
   }
   override def visit(node: StringLiteral) : Boolean = { 
+    e = Some(ast.VarRef(node.getEscapedValue))
     false 
   }
-  override def visit(node: NumberLiteral) : Boolean = { 
+  override def visit(node: NumberLiteral) : Boolean = {
+    e = Some(ast.VarRef(node.getToken))
     false 
   }
-  override def visit(node: NullLiteral) : Boolean = { 
+  override def visit(node: NullLiteral) : Boolean = {
+    e = Some(ast.VarRef(null))
     false 
   }
   
@@ -100,7 +106,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    * From context:
    */
   
-  override def visit(node: SimpleName) : Boolean = { 
+  override def visit(node: SimpleName) : Boolean = {
     e = Some(ast.VarRef(node.getIdentifier))
     false 
   }
