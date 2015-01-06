@@ -4,13 +4,32 @@ package translate
 // http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAST.html
 import org.eclipse.jdt.core.dom.ASTVisitor
 import org.eclipse.jdt.core.dom.IfStatement
-import org.eclipse.jdt.core.dom.WhileStatement
-import org.eclipse.jdt.core.dom.DoStatement
 import org.eclipse.jdt.core.dom.ForStatement
 import org.eclipse.jdt.core.dom.Statement
 import org.eclipse.jdt.core.dom.Assignment
 import org.eclipse.jdt.core.dom.Assignment.Operator
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment
+import org.eclipse.jdt.core.dom.BreakStatement
+import org.eclipse.jdt.core.dom.ContinueStatement
+import org.eclipse.jdt.core.dom.EmptyStatement
+import org.eclipse.jdt.core.dom.TypeDeclarationStatement
+
+// Not implementable
+import org.eclipse.jdt.core.dom.ReturnStatement
+import org.eclipse.jdt.core.dom.AssertStatement
+import org.eclipse.jdt.core.dom.EnhancedForStatement
+import org.eclipse.jdt.core.dom.LabeledStatement
+import org.eclipse.jdt.core.dom.WhileStatement
+import org.eclipse.jdt.core.dom.DoStatement
+import org.eclipse.jdt.core.dom.SynchronizedStatement
+import org.eclipse.jdt.core.dom.ThrowStatement
+import org.eclipse.jdt.core.dom.TryStatement
+
+// Could be implemented later
+import org.eclipse.jdt.core.dom.SuperConstructorInvocation
+import org.eclipse.jdt.core.dom.SwitchCase
+import org.eclipse.jdt.core.dom.SwitchStatement
+
 import nl.ru.cs.ecalogic.translate.TranslateVisitor
 import nl.ru.cs.ecalogic.translate.NotImplementedVisitor;
 import ast.If
@@ -79,6 +98,27 @@ class Stm extends TranslateVisitor[ast.Statement] {
     throw new ECAException("'do' not permitted, use a for loop and annotate its bound in an initializer.");
   }
   
+  override def visit(b: BreakStatement) : Boolean = {
+    statements.+:(ast.Break);
+    false
+  }
+  
+  override def visit(c: ContinueStatement) : Boolean = {
+    statements.+:(ast.Continue);
+    false
+  }
+  
+  override def visit(e: EmptyStatement) : Boolean = {    
+    false
+  }
+  override def visit(t: TypeDeclarationStatement) : Boolean = {
+    false
+  }
+  
+  override def visit(r: ReturnStatement) : Boolean = {
+    throw new ECAException("From ecalogic, there is no return.");
+  }
+  
   /**
    * Handles if statements
    */
@@ -89,17 +129,12 @@ class Stm extends TranslateVisitor[ast.Statement] {
     }
     false
   }
-  
-  // visit todo's:
-  //   expression statement
-  //   variable declaration
-  //   return statement?
-  
+    
   def result(): Option[ast.Statement] = {
     statements.length match {
-      case 0 => Option.empty
+      case 0 => Some(ast.Skip())
       case 1 => Some(statements.head);
-      case _ => Some(new ast.Composition(statements)) 
+      case _ => Some(ast.Composition(statements)) 
     }
     
   }
