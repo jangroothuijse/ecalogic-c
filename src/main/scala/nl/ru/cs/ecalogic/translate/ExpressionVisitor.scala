@@ -2,26 +2,21 @@ package nl.ru.cs.ecalogic
 package translate
 
 import org.eclipse.jdt.core.dom.Expression
-
 import org.eclipse.jdt.core.dom.ArrayAccess
 import org.eclipse.jdt.core.dom.FieldAccess
-
 import org.eclipse.jdt.core.dom.BooleanLiteral
 import org.eclipse.jdt.core.dom.CharacterLiteral
 import org.eclipse.jdt.core.dom.StringLiteral
 import org.eclipse.jdt.core.dom.NumberLiteral
 import org.eclipse.jdt.core.dom.NullLiteral
-
 import org.eclipse.jdt.core.dom.SimpleName
 import org.eclipse.jdt.core.dom.MethodInvocation
-
 import org.eclipse.jdt.core.dom.InfixExpression
 import org.eclipse.jdt.core.dom.PostfixExpression
 import org.eclipse.jdt.core.dom.PrefixExpression
-
 import org.eclipse.jdt.core.dom.ThisExpression
-
 import org.eclipse.jdt.core.dom.InfixExpression.Operator
+import nl.ru.cs.ecalogic.ast.ASTArrayT
 
 /**
  * Visits expressions, can cross over to Statements again using expression statement
@@ -63,7 +58,14 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    * Accessing data structures 
    */
   
-  override def visit(node: ArrayAccess) : Boolean = { 
+  override def visit(node: ArrayAccess) : Boolean = {
+//   val array : Seq[ast.Expression] = Seq();
+//   val index : Seq[ast.Expression] = Seq();
+   e match {
+      case None => None;
+//      case ast.ArrayAccess(name, index) => e = ast.Expression(name, index);
+//      case Some(_) => e = ast.ArrayAccess.tupled(getArray, getIndex); 
+   } 
     false 
   }
   override def visit(node: FieldAccess) : Boolean = { 
@@ -73,6 +75,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
     false 
   }
   
+ 
   /*
    * Literals:
    */
