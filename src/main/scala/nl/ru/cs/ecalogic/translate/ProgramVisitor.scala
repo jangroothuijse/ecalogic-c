@@ -60,17 +60,22 @@ class ProgramVisitor extends TranslateVisitor[Program] {
       new Stm().acceptResult(fun.getBody()) match {
           case None =>
           case Some(body) =>
-            functions.+(
-              (fun.getName.getFullyQualifiedName,  
-              new FunDef(
-                fun.getName.getFullyQualifiedName, 
-                // in case of static functions, we do not need an argument for the this object
-                (if ((fun.getModifiers & Modifier.STATIC) == 0) ProgramVisitor.methodArgs else Array()) ++ 
-                (for (f <- fun.parameters().toArray()) 
-                  yield f.asInstanceOf[SingleVariableDeclaration].getName.getIdentifier),
-                body
-              ))
-            )
+            if ((fun.getModifiers & (Modifier.STATIC | Modifier.FINAL)) == 0
+                && (t.getModifiers & Modifier.FINAL) == 0)
+               throw new ECAException("Methods must be at final, static or both or the class must be final.")
+            else {
+              functions.+(
+                (fun.getName.getFullyQualifiedName,  
+                new FunDef(
+                  fun.getName.getFullyQualifiedName, 
+                  // in case of static functions, we do not need an argument for the this object
+                  (if ((fun.getModifiers & Modifier.STATIC) == 0) ProgramVisitor.methodArgs else Array()) ++ 
+                  (for (f <- fun.parameters().toArray()) 
+                    yield f.asInstanceOf[SingleVariableDeclaration].getName.getIdentifier),
+                  body
+                ))
+              )
+            }
       }
     }
     false
