@@ -30,8 +30,6 @@ import org.eclipse.jdt.core.dom.SuperConstructorInvocation
 import org.eclipse.jdt.core.dom.SwitchCase
 import org.eclipse.jdt.core.dom.SwitchStatement
 
-import nl.ru.cs.ecalogic.translate.TranslateVisitor
-import nl.ru.cs.ecalogic.translate.NotImplementedVisitor;
 import ast.If
 import ast.Skip
 import ast.While

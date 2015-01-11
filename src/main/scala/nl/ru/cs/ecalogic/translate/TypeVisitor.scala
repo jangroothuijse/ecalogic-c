@@ -2,7 +2,6 @@ package nl.ru.cs.ecalogic
 package translate
 import org.eclipse.jdt.core.dom.TypeDeclaration
 import nl.ru.cs.ecalogic.ast
-import nl.ru.cs.ecalogic.translate.Stm
 import org.eclipse.jdt.core.dom.Type
 import org.eclipse.jdt.core.dom.PrimitiveType
 import org.eclipse.jdt.core.dom.ArrayType
@@ -48,22 +47,20 @@ class TypeVisitor(node: Type) extends NotImplementedVisitor[ast.ASTType]{
         case double => Some(new ASTRealT())
         case void => Some(new ASTVoidT())
         case boolean => Some(new ASTUnionT("Boolean")) // boolean instead of string 
+        case default => None
       }
-      None;
     }   
     else if (whatType.isInstanceOf[ArrayType]) {
       val typeArray = node.asInstanceOf[ArrayType]
       new TypeVisitor(typeArray.getComponentType()).result match {
+        case None => None
         case Some(component) => Some(new ASTArrayT(component))
        }
-      None
     }
     else if (whatType.isInstanceOf[SimpleType]) {
       val typeObject = node.asInstanceOf[SimpleType]      
         Some(new ASTStructT(typeObject.getName().getFullyQualifiedName))      
     }
     else None
-            
-  None
   }  
 }
