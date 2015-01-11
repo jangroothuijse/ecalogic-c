@@ -76,6 +76,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
     false 
   }
   override def visit(node: ThisExpression) : Boolean = { 
+    e = Some(ast.VarRef(ExpressionVisitor.thisName))
     false 
   }
   
@@ -114,7 +115,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
     false 
   }
   override def visit(node: MethodInvocation) : Boolean = { 
-    val args : Seq[ast.Expression] = Seq();
+    val args : List[ast.Expression] = List();
     for (o : Object <- node.arguments.toArray()) {
       val e = o.asInstanceOf[Expression];
       new ExpressionVisitor().acceptResult(e) match {
@@ -122,7 +123,14 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
         case Some(ae) => args.+:(ae._2);
       }
     }
-    e = Some(ast.FunCall(ast.FunName(node.getName().getFullyQualifiedName()), args)); 
+    
+    if (node.getExpression == null)
+      e = Some(ast.FunCall(ast.FunName(node.getName().getFullyQualifiedName()), args));
+    else new ExpressionVisitor().acceptResult(node.getExpression) match {
+      case None => e = Some(ast.FunCall(ast.FunName(node.getName().getFullyQualifiedName()), args));
+      case Some(context) => // for method invocation on objects, the object will be arg0:
+        e = Some(ast.FunCall(ast.FunName(node.getName().getFullyQualifiedName()), context._2 :: args));
+    }
     false
   }
   
@@ -303,4 +311,13 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
   }
   
   
+}
+
+object ExpressionVisitor {  
+  /**
+   * The name of the parameter that holds in a reference to 'this', in java its called this which
+   * is why no other things can be called this and why this is a safe choice for an ecalogic
+   * program representing a java program.
+   */
+  val thisName : String = "this"
 }
