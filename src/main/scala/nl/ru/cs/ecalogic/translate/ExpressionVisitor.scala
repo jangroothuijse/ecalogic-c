@@ -82,27 +82,24 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    */
   
   override def visit(node: BooleanLiteral) : Boolean = { 
-    new ExpressionVisitor().acceptResult(node.booleanValue) match {
-      case true => e = Some(ast.Literal(new model.ECAValue(1)))
-      case false => e = Some(ast.Literal(new model.ECAValue(0)))      
-    }    
+    if (node.booleanValue()) e = Some(ast.Literal(new model.ECAValue(1)))
+    else e = Some(ast.Literal(new model.ECAValue(0))) 
     false 
   }
   override def visit(node: CharacterLiteral) : Boolean = { 
-    e = Some(ast.VarRef(node.charValue))
+    e = Some(ast.Literal(new model.ECAValue(node.charValue.toInt)))
     false 
   }
   override def visit(node: StringLiteral) : Boolean = { 
-    e = Some(ast.VarRef(node.getEscapedValue))
+    e = Some(ast.StringConstant(node.getEscapedValue))
     false 
   }
   override def visit(node: NumberLiteral) : Boolean = {
-    e = Some(ast.VarRef(node.getToken))
+    e = Some(ast.Literal(Integer.parseInt(node.getToken)))
     false 
   }
   override def visit(node: NullLiteral) : Boolean = {
-    e = Some(ast.VarRef(null))
-    false 
+    throw new ECAException("No null representative in ECA, the ECA Language does not support a default bottom type");
   }
   
   /*
