@@ -7,6 +7,8 @@ import org.eclipse.jdt.core.dom.ImportDeclaration
 import org.eclipse.jdt.core.dom.TypeDeclaration
 import org.eclipse.jdt.core.dom.DoStatement
 import org.eclipse.jdt.core.dom.ForStatement
+import org.eclipse.jdt.core.dom.Modifier
+import org.eclipse.jdt.core.dom.MethodDeclaration
 import org.eclipse.jdt.core.dom.IExtendedModifier
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment
@@ -59,20 +61,24 @@ class ProgramVisitor extends TranslateVisitor[Program] {
           case None =>
           case Some(body) =>
             functions.+(
-              (fun.getName.getIdentifier,  
+              (fun.getName.getFullyQualifiedName,  
               new FunDef(
-                fun.getName.getIdentifier, 
-                for (f <- fun.parameters().toArray()) 
-                  yield f.asInstanceOf[SingleVariableDeclaration].getName.getIdentifier,
+                fun.getName.getFullyQualifiedName, 
+                // in case of static functions, we do not need an argument for the this object
+                (if ((fun.getModifiers & Modifier.STATIC) == 0) ProgramVisitor.methodArgs else Array()) ++ 
+                (for (f <- fun.parameters().toArray()) 
+                  yield f.asInstanceOf[SingleVariableDeclaration].getName.getIdentifier),
                 body
               ))
             )
       }
     }
-    
-    // parse functions, prepend their name with our name
     false
   }
   
   def result() : Option[Program] = Some(new Program(imports, functions, defs));
+}
+
+object ProgramVisitor {
+  val methodArgs : Array[String] = Array(ExpressionVisitor.thisName)
 }
