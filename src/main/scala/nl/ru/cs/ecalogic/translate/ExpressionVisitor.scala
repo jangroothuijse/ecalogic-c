@@ -59,17 +59,20 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
    */
   
   override def visit(node: ArrayAccess) : Boolean = {
-//   val array : Seq[ast.Expression] = Seq();
-//   val index : Seq[ast.Expression] = Seq();
-   e match {
-      case None => None;
-//      case ast.ArrayAccess(name, index) => e = ast.Expression(name, index);
-//      case Some(_) => e = ast.ArrayAccess.tupled(getArray, getIndex); 
-   } 
+    new ExpressionVisitor().acceptResult(node.getArray) match {
+      case None =>
+      case Some(array) => new ExpressionVisitor().acceptResult(node.getIndex) match {
+        case None =>
+        case Some(index) => e = Some(ast.ArrayAccess(array._2, index._2))
+      }
+    }
     false 
   }
   override def visit(node: FieldAccess) : Boolean = { 
-    // object.field foo().bla
+    new ExpressionVisitor().acceptResult(node.getExpression) match {
+      case None =>
+      case Some(struct) => e = Some(ast.StructAccess(struct._2, node.getName.getIdentifier))
+    }
     false 
   }
   override def visit(node: ThisExpression) : Boolean = { 
