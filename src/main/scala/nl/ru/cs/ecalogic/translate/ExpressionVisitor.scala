@@ -195,7 +195,6 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
       
     false 
   }
-  
   /**
    *  Postfix operators: return old value
    */
@@ -205,7 +204,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
       case Some(a) =>
         if (node.getOperator == PostfixExpression.Operator.INCREMENT) {
           e = Some(ast.Subtract(a._2, ast.Literal(new model.ECAValue(1))))
-          a._2 match {
+          /*a._2 match {
             case ast.VarRef(name) =>
               emittedAssignments .:+ (ast.Assignment(name,
                    ast.Add(ast.VarRef(name), ast.Literal(new model.ECAValue(1)))
@@ -222,10 +221,10 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
               emittedAssignments .:+ (ast.UnionAssign(union, field,
                    ast.Add(ast.UnionAccess(union, field), ast.Literal(new model.ECAValue(1)))
               ))
-          }
+          }*/
         } else if (node.getOperator == PostfixExpression.Operator.DECREMENT) {
           e = Some(ast.Add(a._2, ast.Literal(new model.ECAValue(1))))
-          a._2 match {
+          /*a._2 match {
             case ast.VarRef(name) =>
               emittedAssignments .:+ (ast.Assignment(name,
                    ast.Subtract(ast.VarRef(name), ast.Literal(new model.ECAValue(1)))
@@ -242,7 +241,7 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
               emittedAssignments .:+ (ast.UnionAssign(union, field,
                    ast.Subtract(ast.UnionAccess(union, field), ast.Literal(new model.ECAValue(1)))
               ))
-          }
+          }*/
         } else throw new ECAException("Operator unsupported: " + node.getOperator.toString);
     }
     false 
@@ -250,64 +249,79 @@ class ExpressionVisitor extends TranslateVisitor[(List[ast.Statement], ast.Expre
   /** 
    *  Prefix operators: return new value
    */
-  override def visit(node: PrefixExpression) : Boolean = { 
-    new ExpressionVisitor().acceptResult(node.getOperand) match {
-      case None => 
-      case Some(a) =>
+  override def visit(node: PrefixExpression) : Boolean = {
+    val one : ast.Literal = ast.Literal(new model.ECAValue(1));
+    new ExpressionVisitor().acceptResult(node.getOperand) match {      
+      case None => false
+      case Some(a) => {
         if (node.getOperator == PrefixExpression.Operator.DECREMENT) {
-          a._2 match {
-            case ast.VarRef(name) =>
-              emittedAssignments .:+ (ast.Assignment(name,
-                   ast.Subtract(ast.VarRef(name), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.ArrayAccess(name, index) =>
+          val ex : ast.Expression = a._2; 
+          /*ex match {      Not needed for now and made the compiler crash...:( 
+            case ast.VarRef(name) => {
+              emittedAssignments .:+ (ast.Assignment(name, ast.Subtract(ast.VarRef(name), one)));
+            }
+            case ast.ArrayAccess(name, index) => {
               emittedAssignments .:+ (ast.ArrayAssign(name, index,
-                   ast.Subtract(ast.ArrayAccess(name, index), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.StructAccess(struct, field) =>
+                   ast.Subtract(ast.ArrayAccess(name, index), one)
+              ));
+            }
+            case ast.StructAccess(struct, field) => {
               emittedAssignments .:+ (ast.StructAssign(struct, field,
-                   ast.Subtract(ast.StructAccess(struct, field), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.UnionAccess(union, field) =>
+                   ast.Subtract(ast.StructAccess(struct, field), one)
+              ));
+            }
+            case ast.UnionAccess(union, field) => {
               emittedAssignments .:+ (ast.UnionAssign(union, field,
-                   ast.Subtract(ast.UnionAccess(union, field), ast.Literal(new model.ECAValue(1)))
-              ))
-          }
-          e = Some(a._2)
+                   ast.Subtract(ast.UnionAccess(union, field), one)
+              ));
+            }
+          };*/
+          //e = Some(a._2);
+          e = Some(ex);
+          false;
         } else if (node.getOperator == PrefixExpression.Operator.INCREMENT) {
-          a._2 match {
-            case ast.VarRef(name) =>
+          /*a._2 match {
+            case ast.VarRef(name) => {
               emittedAssignments .:+ (ast.Assignment(name,
                    ast.Add(ast.VarRef(name), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.ArrayAccess(name, index) =>
+              ));
+            }
+            case ast.ArrayAccess(name, index) => {
               emittedAssignments .:+ (ast.ArrayAssign(name, index,
                    ast.Add(ast.ArrayAccess(name, index), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.StructAccess(struct, field) =>
+              ));
+            }
+            case ast.StructAccess(struct, field) => {
               emittedAssignments .:+ (ast.StructAssign(struct, field,
                    ast.Add(ast.StructAccess(struct, field), ast.Literal(new model.ECAValue(1)))
-              ))
-            case ast.UnionAccess(union, field) =>
+              ));
+            }
+            case ast.UnionAccess(union, field) => {
               emittedAssignments .:+ (ast.UnionAssign(union, field,
                    ast.Add(ast.UnionAccess(union, field), ast.Literal(new model.ECAValue(1)))
-              ))
-          }
-          e = Some(a._2)
+              ));
+            }
+          };*/
+          e = Some(a._2);
+          false;
         } else if (node.getOperator == PrefixExpression.Operator.COMPLEMENT) {
           // due to two complements notations: -i == ~(i + 1)
           // so -(i-1) = ~i
           e = Some(ast.Subtract(ast.Literal(new model.ECAValue(0)), 
-                ast.Subtract(a._2, ast.Literal(new model.ECAValue(1)))))
+                ast.Subtract(a._2, ast.Literal(new model.ECAValue(1)))));
+          false;
         } else if (node.getOperator == PrefixExpression.Operator.MINUS) {
-          e = Some(ast.Subtract(ast.Literal(new model.ECAValue(0)), a._2))
+          e = Some(ast.Subtract(ast.Literal(new model.ECAValue(0)), a._2));
+          false;
         } else if (node.getOperator == PrefixExpression.Operator.NOT) { 
-          e = Some(ast.Not(a._2));        
+          e = Some(ast.Not(a._2));
+          false;
         } else if (node.getOperator == PrefixExpression.Operator.PLUS) { 
-          e = Some(a._2)
-        }else throw new ECAException("Operator unsupported: " + node.getOperator.toString);
+          e = Some(a._2);
+          false;
+        } else throw new ECAException("Operator unsupported: " + node.getOperator.toString);
+      }
     }
-    false 
   }
   
   
