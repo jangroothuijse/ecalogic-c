@@ -30,8 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package nl.ru.cs.ecalogic
-package translate
+package nl.ru.cs
+package ecalogic
 
 import parser.Parser
 import parser.CParser
@@ -191,7 +191,7 @@ object ECALogic {
     //ASTNode node = parser.createAST(null);
   
     val cu: CompilationUnit = parser.createAST(null).asInstanceOf[CompilationUnit];
-    val consumptionAnalyser = new EnergyAnalysis(new ProgramVisitor().acceptResult(cu).asInstanceOf[Program], components, errorHandler); 
+    val consumptionAnalyser = new EnergyAnalysis(new translate.ProgramVisitor().acceptResult(cu).asInstanceOf[Program], components, errorHandler); 
          consumptionAnalyser.analyse(Options.entryPoint) 
     
   }
@@ -218,7 +218,7 @@ object ECALogic {
   def main_(args: Array[String]): Int = try {
 
    
-    var idle = true
+    var idle : Boolean = true
     val fileArgs = config.Options(args)
 
     config.Options.aliasOverrides.foreach {
