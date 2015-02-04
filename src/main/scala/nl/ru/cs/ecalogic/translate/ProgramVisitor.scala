@@ -22,16 +22,16 @@ import org.eclipse.jdt.core.dom.FieldDeclaration
 
 class ProgramVisitor extends TranslateVisitor[Program] {
   // imports
-  val imports: Map[String, Import] = Map();
+  var imports: Map[String, Import] = Map();
   // methods of objects and classes (so both static and non static)
-  val functions: Map[String, FunDef] = Map();
+  var functions: Map[String, FunDef] = Map();
   // structs to store object variables
-  val defs: Map[String, Definition] = Map();
+  var defs: Map[String, Definition] = Map();
   
   override def visit(i: ImportDeclaration) : Boolean = {
     val name: String = i.getName.getFullyQualifiedName;
     val ecaImport = new Import(name.split("."), name)
-    imports.+((name, ecaImport));
+    imports = imports.+((name, ecaImport));
     false
   }
   
@@ -39,7 +39,7 @@ class ProgramVisitor extends TranslateVisitor[Program] {
   override def visit(t: TypeDeclaration) : Boolean = {
     val name: String = t.getName.getIdentifier;
     // per type, make 1 struct (if it has any fields)
-    val fields: Map[String, ASTType] = Map()
+    var fields: Map[String, ASTType] = Map()
     
     for (field <- t.getFields) {
       // TODO: check if its static
@@ -48,13 +48,13 @@ class ProgramVisitor extends TranslateVisitor[Program] {
           new TypeVisitor(field.getType).result() match {
             case None =>
             case Some(astType) =>
-              fields.+((vdf.getName.getIdentifier, astType))
+              fields = fields.+((vdf.getName.getIdentifier, astType))
           }
           false
         }
       })
     }
-    defs.+((name, new StructDef(name, fields)))
+    defs = defs.+((name, new StructDef(name, fields)))
     
     for (fun <- t.getMethods) {
       new Stm().acceptResult(fun.getBody()) match {
@@ -64,7 +64,7 @@ class ProgramVisitor extends TranslateVisitor[Program] {
                 && (t.getModifiers & Modifier.FINAL) == 0)
                throw new ECAException("Methods must be at final, static or both or the class must be final.")
             else {
-              functions.+(
+              functions = functions.+(
                 (fun.getName.getFullyQualifiedName,  
                 new FunDef(
                   fun.getName.getFullyQualifiedName, 
@@ -81,7 +81,7 @@ class ProgramVisitor extends TranslateVisitor[Program] {
     false
   }
   
-  def result() : Option[Program] = Some(new Program(imports, functions, defs));
+  def result() : Option[Program] = Some(new Program(imports, functions, defs)); 
 }
 
 object ProgramVisitor {

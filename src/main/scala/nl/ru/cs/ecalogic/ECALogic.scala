@@ -138,17 +138,17 @@ object ECALogic {
   //Retrieves ImpModel function aliases and performs the initial call
   def performCompFunAliases(comps: Map[String,ComponentModel], ast: ASTNode) : ASTNode = {
     val aliases = Seq.newBuilder[(String, (String, String))];
-	for (pair <- comps) {
-		pair._2 match {
-			case comp : ImpModel => comp.processAliases(aliases);
-			case _ =>
-		}
-	}
-	println("Aliases found:");
-	for (pair <- aliases.result()) {
-		println(s"${pair._1} -> ${pair._2._1}::${pair._2._2}");
-	}
-	applyCompFunAliases(aliases.result(), ast)
+  	for (pair <- comps) {
+  		pair._2 match {
+  			case comp : ImpModel => comp.processAliases(aliases);
+  			case _ =>
+  		}
+  	}
+  	println("Aliases found:");
+  	for (pair <- aliases.result()) {
+  		println(s"${pair._1} -> ${pair._2._1}::${pair._2._2}");
+  	}
+  	applyCompFunAliases(aliases.result(), ast)
   }
 
   def analyse(fileName: String) = {
@@ -157,46 +157,53 @@ object ECALogic {
     val errorHandler = new DefaultErrorHandler(sourceText = Some(source), sourceURI = Some(file.toURI))
 
     //val program = errorHandler.reportAll("One or more errors occurred during parsing.") {
-	val baseprogram = {
-	  if (Options.clike) {
-	    val parser = new CParser(errorHandler)
-		parser.program()
-	  } else {
-        val parser = new Parser(source, errorHandler)
-        parser.program()
-	  }
+	  val baseprogram = {
+  	  if (Options.clike) {
+  	    val parser = new CParser(errorHandler)
+  		parser.program()
+  	  } else {
+          val parser = new Parser(source, errorHandler)
+          parser.program()
+  	  }
     }
 
     val components = errorHandler.reportAll("One or more errors occurred while loading components.") {
       ComponentModel.fromImports(baseprogram.imports)
     } ++ forceComponents
 	
-	val program = performCompFunAliases(components, baseprogram).asInstanceOf[Program]
-
-    if (!Options.clike) {
-		errorHandler.reportAll("One or more errors occurred during semantic analysis.") {
-			val checker = new SemanticAnalysis(program, components, errorHandler)
-			checker.functionCallHygiene()
-			checker.variableReferenceHygiene()
-		}
-	}
+  	val program = performCompFunAliases(components, baseprogram).asInstanceOf[Program]
+  
+      if (!Options.clike) {
+  		errorHandler.reportAll("One or more errors occurred during semantic analysis.") {
+  			val checker = new SemanticAnalysis(program, components, errorHandler)
+  			checker.functionCallHygiene()
+  			checker.variableReferenceHygiene()
+  		}
+  	}
 
     errorHandler.reportAll("One or more errors occurred during energy analysis.") {
-      /* analysis entryPoint */
-      /* start new analyses */
-    val parser: ASTParser = ASTParser.newParser(AST.JLS3);
-    parser.setSource(Source.fromFile(file).mkString.toArray)
-    //parser.setSource("/*abc*/".toCharArray());
-    parser.setKind(ASTParser.K_COMPILATION_UNIT);
-    //ASTNode node = parser.createAST(null);
-  
-    val cu: CompilationUnit = parser.createAST(null).asInstanceOf[CompilationUnit];
-    val consumptionAnalyser = new EnergyAnalysis(new translate.ProgramVisitor().acceptResult(cu).asInstanceOf[Program], components, errorHandler); 
-         consumptionAnalyser.analyse(Options.entryPoint) 
+        /* analysis entryPoint */
+        /* start new analyses */
+      val parser: ASTParser = ASTParser.newParser(AST.JLS3);
+      parser.setSource(Source.fromFile(file).mkString.toArray)
+      //parser.setSource("/*abc*/".toCharArray());
+      parser.setKind(ASTParser.K_COMPILATION_UNIT);
+      //ASTNode node = parser.createAST(null);
     
-  }
-
-    
+      val cu: CompilationUnit = parser.createAST(null).asInstanceOf[CompilationUnit];
+      new translate.ProgramVisitor().acceptResult(cu) match { 
+        case None => throw new ECAException("No program found while parsing java, means no type was declared.")
+        case Some(p) => 
+           val consumptionAnalyser = new EnergyAnalysis(p, components, errorHandler);
+           var funName : String = "main";
+                      
+           p.functions.keys.foreach {
+              case name if name.endsWith("main") => funName = name  
+              case _ =>
+           }
+           consumptionAnalyser.analyse(funName);
+      }
+    }    
   }
 
   /* if arg is of the form name=file.ext, return (name, file.ext);
@@ -235,26 +242,17 @@ object ECALogic {
         val name  = if(alias.isEmpty) file.getName.substring(0,file.getName.length-4) else alias
         val model = ECMModel.fromFile(file)
         forceComponents = forceComponents + (name->model)
-        /* where the java input file gets read */
-	  case fileName if fileName.endsWith(".java") =>
-        val (alias, trueFileName) = getAlias(fileName)
-		val file  = new File(trueFileName).getAbsoluteFile
-        val name  = if(alias.isEmpty) file.getName.substring(0,file.getName.length-5) else alias
-        val model = new ImpModel(name)
-        forceComponents = forceComponents + (name->model)
       case _ =>
         /* we will complain later :) */
     }
     fileArgs.foreach {
       /* This is where the input file gets read */
-      case fileName if fileName.endsWith(".eca") || fileName.endsWith(".c") =>
+      case fileName if fileName.endsWith(".eca") || fileName.endsWith(".java") =>
         val state = analyse(fileName)
         report(fileName, state)
         idle = false
       case fileName if fileName.endsWith(".ecm") =>
         /* already handled */
-	  case fileName if fileName.endsWith(".java") =>
-		/* already handled */
       case fileName =>
         complain(s"File not recognized: $fileName")
     }

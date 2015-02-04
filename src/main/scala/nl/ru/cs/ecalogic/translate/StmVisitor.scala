@@ -38,7 +38,7 @@ import ast.Expression
 import org.eclipse.jdt.core.dom.Block
 
 class Stm extends TranslateVisitor[ast.Statement] {  
-  val statements: Seq[ast.Statement] = List();
+  var statements: Seq[ast.Statement] = List();
   
   /**
    * @see http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAssignment.html
@@ -51,7 +51,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
         case Some(rhs) => 
           // @see http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2Fdom%2FAssignment.Operator.html
           if (a.getOperator == Assignment.Operator.ASSIGN) {
-            statements.+:(new ast.Assignment("", rhs._2))
+            statements = statements.+:(new ast.Assignment("", rhs._2))
           } else {
             // handle all other Operator. constants, by applying what every they do to rhs
           }
@@ -68,7 +68,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
     else {
       new ExpressionVisitor().acceptResult(d.getInitializer()) match {
         case None =>
-        case Some(rhs) => statements .+:(new ast.Assignment(d.getName.getIdentifier, rhs._2));
+        case Some(rhs) => statements = statements .+:(new ast.Assignment(d.getName.getIdentifier, rhs._2));
       }
       false
     }
@@ -82,7 +82,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
       val result = new Stm().acceptResult(node.asInstanceOf[Statement])
       result match {
         case None => 
-        case Some(v) => statements.+:(v) 
+        case Some(v) => statements = statements.+:(v) 
       }
     }
     false
@@ -97,12 +97,12 @@ class Stm extends TranslateVisitor[ast.Statement] {
   }
   
   override def visit(b: BreakStatement) : Boolean = {
-    statements.+:(ast.Break);
+    statements = statements.+:(new ast.Break);
     false
   }
   
   override def visit(c: ContinueStatement) : Boolean = {
-    statements.+:(ast.Continue);
+    statements = statements.+:(new ast.Continue);
     false
   }
   
@@ -123,7 +123,7 @@ class Stm extends TranslateVisitor[ast.Statement] {
   override def visit(ifthenelse : IfStatement) : Boolean = {
     new IfStm(ifthenelse).result() match { 
       case None => 
-      case Some(node) => statements.+:(node)
+      case Some(node) => statements = statements.+:(node)
     }
     false
   }
