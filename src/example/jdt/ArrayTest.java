@@ -20,7 +20,7 @@ public class ArrayTest {
 		}
 	}	
 		// Manually allocate differing size second dimensions. 
-	private void multiDim(){
+	private final void multiDim(){
 		int twoD[][] = new int[4][]; 
 		twoD[0] = new int[1]; 
 		twoD[1] = new int[2]; 
@@ -47,7 +47,7 @@ public class ArrayTest {
 	   * Create a String array, then populate the array, 
 	   * and finally print each element in the int array.
 	   */
-	  private void stringArrayExample()
+	  private final void stringArrayExample()
 	  {
 	    String[] stringArray = new String[3];
 	    stringArray[0] = "a";
@@ -64,7 +64,7 @@ public class ArrayTest {
 	   * Create a Java int array and populate it in one step.
 	   * Then get the array length and print each element in the array.
 	   */
-	  private void intArrayExample2()
+	  private final void intArrayExample2()
 	  {
 	    int[] intArray = new int[] {4,5,6,7,8};
 	    System.out.println("intArray output (version 2)");
